@@ -128,10 +128,8 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
-      - "443:443"
     volumes:
       - nginx_logs:/var/log/nginx
-      - letsencrypt_data:/etc/letsencrypt
     depends_on:
       backend:
         condition: service_healthy
@@ -147,4 +145,3 @@ volumes:
   redis_data:
   data_volume:
   nginx_logs:
-  letsencrypt_data:
