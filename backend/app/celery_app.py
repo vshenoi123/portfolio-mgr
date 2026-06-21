@@ -63,5 +63,27 @@ celery_app.conf.update(
             "task": "app.engines.risk.tasks.assess_risk_and_alert",
             "schedule": 86400.0,
         },
+        # Phase 5
+        "sync-positions-5min": {
+            "task": "app.engines.trading.tasks.sync_positions",
+            "schedule": 300.0,
+        },
+        "run-position-watchdog-hourly": {
+            "task": "app.engines.positions.tasks.run_position_watchdog",
+            "schedule": 3600.0,
+        },
+        "collect-monitoring-data-5min": {
+            "task": "app.engines.monitoring.tasks.collect_monitoring_data",
+            "schedule": 300.0,
+        },
+        # Phase 6
+        "generate-daily-report": {
+            "task": "app.engines.ai_manager.tasks.generate_daily_report_task",
+            "schedule": 86400.0,
+        },
+        "compute-signal-efficacy-daily": {
+            "task": "app.engines.self_learning.tasks.compute_signal_efficacy_task",
+            "schedule": 86400.0,
+        },
     },
 )

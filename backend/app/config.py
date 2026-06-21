@@ -22,6 +22,30 @@ class Settings(BaseSettings):
     kelly_fraction: float = 0.25
     correlation_threshold: float = 0.80
 
+    # Phase 5: Position management rules
+    csp_close_profit_min_pct: float = 50.0
+    csp_close_profit_max_pct: float = 75.0
+    csp_roll_dte_threshold: int = 21
+    csp_max_dte: int = 45
+    leaps_exit_profit_target_pct: float = 100.0
+    leaps_trend_failure_threshold: str = "bearish"
+    swings_trailing_stop_pct: float = 8.0
+    swings_breakdown_stop_pct: float = 12.0
+    swings_profit_target_pct: float = 25.0
+    pmcc_short_call_profit_target_pct: float = 50.0
+    pmcc_short_call_dte_threshold: int = 14
+    pmcc_short_call_max_dte: int = 45
+
+    # Phase 5: Monitoring
+    monitoring_poll_interval_seconds: int = 60
+    monitoring_health_critical_threshold: float = 30.0
+    monitoring_health_warning_threshold: float = 60.0
+
+    # Phase 6: AI / LLM
+    llm_provider: str = "openai"
+    openai_api_key: str = ""
+    ollama_base_url: str = "http://localhost:11434"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

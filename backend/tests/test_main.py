@@ -107,3 +107,44 @@ class TestPhase4Endpoints:
                 json={"ticker": "AAPL", "requested_size": 10000, "sector": "TECHNOLOGY"})
         assert resp.status_code == 200
         assert "is_allowed" in resp.json()
+
+
+class TestPhase5Endpoints:
+    async def test_trading_orders_endpoint(self, client, app):
+        from app.engines.trading.router import get_client
+        mock_client = MagicMock()
+        mock_client.list_orders.return_value = []
+        app.dependency_overrides[get_client] = lambda: mock_client
+        resp = await client.get("/api/v1/trading/orders")
+        assert resp.status_code in (200, 422)
+
+    async def test_trading_positions_endpoint(self, client):
+        resp = await client.get("/api/v1/trading/positions")
+        assert resp.status_code in (200, 401, 422)
+
+    async def test_monitoring_summary_endpoint(self, client):
+        with patch("app.engines.monitoring.router.collect_monitoring_summary") as m:
+            from app.engines.monitoring.schemas import MonitoringSummary, PortfolioHealthScore, PortfolioSnapshot
+            from datetime import datetime
+            m.return_value = MonitoringSummary(
+                timestamp=datetime.now(),
+                portfolio=PortfolioSnapshot(timestamp=datetime.now(), total_value=100000),
+                health=PortfolioHealthScore(score=85.0),
+            )
+            resp = await client.get("/api/v1/monitoring/summary")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert "health" in data
+
+    async def test_monitoring_health_endpoint(self, client):
+        with patch("app.engines.monitoring.router.assess_portfolio_risk") as m:
+            from app.engines.risk.schemas import RiskAssessment
+            m.return_value = RiskAssessment(portfolio_health_score=72.0, is_safe=True)
+            resp = await client.get("/api/v1/monitoring/health")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert "portfolio_health_score" in data or "score" in data
+
+    async def test_positions_watchdog_endpoint(self, client):
+        resp = await client.post("/api/v1/positions/watchdog")
+        assert resp.status_code in (200, 422, 401)

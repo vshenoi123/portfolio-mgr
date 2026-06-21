@@ -120,6 +120,90 @@ def _init_schema(conn: duckdb.DuckDBPyConnection) -> None:
     """)
 
 
+    # Phase 5: Orders and trade journal tables
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY DEFAULT nextval('seq_id'),
+            alpaca_order_id VARCHAR UNIQUE,
+            ticker VARCHAR NOT NULL,
+            side VARCHAR NOT NULL CHECK(side IN ('buy','sell')),
+            order_type VARCHAR NOT NULL CHECK(order_type IN ('market','limit','stop','stop_limit','trailing_stop')),
+            time_in_force VARCHAR NOT NULL DEFAULT 'day',
+            quantity DECIMAL(18,4) NOT NULL,
+            filled_qty DECIMAL(18,4) NOT NULL DEFAULT 0,
+            price DECIMAL(18,4),
+            stop_price DECIMAL(18,4),
+            status VARCHAR NOT NULL DEFAULT 'pending',
+            strategy_type VARCHAR NOT NULL DEFAULT 'equity',
+            filled_avg_price DECIMAL(18,4),
+            filled_at TIMESTAMP WITH TIME ZONE,
+            submitted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            expires_at TIMESTAMP WITH TIME ZONE,
+            notes VARCHAR DEFAULT '',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+    """)
+
+    # Phase 6: AI reports and self-learning
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS daily_reports (
+            id INTEGER PRIMARY KEY DEFAULT nextval('seq_id'),
+            report_date DATE NOT NULL,
+            summary VARCHAR,
+            sections_json VARCHAR DEFAULT '[]',
+            generated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS performance_attribution (
+            id INTEGER PRIMARY KEY DEFAULT nextval('seq_id'),
+            period VARCHAR NOT NULL,
+            total_return_pct DECIMAL(10,4) DEFAULT 0,
+            best_performer VARCHAR DEFAULT '',
+            worst_performer VARCHAR DEFAULT '',
+            strategy_breakdown_json VARCHAR DEFAULT '{}',
+            sector_breakdown_json VARCHAR DEFAULT '{}',
+            calculated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS self_learning_signals (
+            id INTEGER PRIMARY KEY DEFAULT nextval('seq_id'),
+            signal_type VARCHAR NOT NULL,
+            ticker VARCHAR NOT NULL,
+            predicted_direction VARCHAR,
+            actual_outcome VARCHAR,
+            accuracy DECIMAL(10,4) DEFAULT 0,
+            signal_date DATE NOT NULL,
+            resolution_date DATE,
+            regime_at_signal VARCHAR DEFAULT 'Unknown',
+            notes VARCHAR DEFAULT ''
+        );
+    """)
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS trade_journal (
+            id INTEGER PRIMARY KEY DEFAULT nextval('seq_id'),
+            ticker VARCHAR NOT NULL,
+            side VARCHAR NOT NULL,
+            strategy_type VARCHAR NOT NULL,
+            entry_price DECIMAL(18,4) NOT NULL,
+            exit_price DECIMAL(18,4),
+            quantity DECIMAL(18,4) NOT NULL,
+            gross_pl DECIMAL(18,4) DEFAULT 0,
+            net_pl DECIMAL(18,4) DEFAULT 0,
+            commission DECIMAL(18,4) DEFAULT 0,
+            entry_date TIMESTAMP WITH TIME ZONE NOT NULL,
+            exit_date TIMESTAMP WITH TIME ZONE,
+            days_held INTEGER DEFAULT 0,
+            exit_reason VARCHAR DEFAULT '',
+            regime_at_entry VARCHAR DEFAULT 'Unknown',
+            regime_at_exit VARCHAR DEFAULT 'Unknown',
+            notes VARCHAR DEFAULT '',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+    """)
+
 def get_data_dir() -> str:
     from app.config import settings
     return settings.data_dir
