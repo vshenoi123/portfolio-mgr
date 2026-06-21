@@ -166,7 +166,7 @@ def compute_relative_strength(ticker_close: pd.Series, benchmark_close: pd.Serie
     return ticker_ret / bench_ret.replace(0, np.nan)
 
 
-def compute_all_indicators(df: pd.DataFrame) -> dict[str, dict]:
+def compute_all_indicators(df: pd.DataFrame, spy_close: pd.Series | None = None) -> dict[str, dict]:
     if df.empty:
         return {"trend": {}, "momentum": {}, "volatility": {}, "volume": {}, "market_relative": {}}
     close = df["close"]
@@ -174,12 +174,17 @@ def compute_all_indicators(df: pd.DataFrame) -> dict[str, dict]:
     low = df["low"]
     volume = df["volume"]
 
+    if spy_close is not None and not spy_close.empty:
+        relative_strength = _safe_last(compute_relative_strength(close, spy_close))
+    else:
+        relative_strength = _safe_last(compute_relative_strength(close, close))
+
     return {
         "trend": compute_all_trend(close),
         "momentum": compute_all_momentum(high, low, close),
         "volatility": compute_all_volatility(high, low, close),
         "volume": compute_all_volume(high, low, close, volume),
         "market_relative": {
-            "relative_strength": _safe_last(compute_relative_strength(close, close)),
+            "relative_strength": relative_strength,
         },
     }

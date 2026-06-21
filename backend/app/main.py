@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 from app.config import settings
 from app.engines.data.router import router as data_router
+from app.engines.features.router import router as features_router
 
 
 @asynccontextmanager
@@ -24,6 +25,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(data_router)
+    app.include_router(features_router)
 
     @app.get("/health")
     def health():
