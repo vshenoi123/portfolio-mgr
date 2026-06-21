@@ -1,4 +1,9 @@
+import os
+
 import pytest
+
+os.environ.setdefault("POLYGON_API_KEY", "test_key")
+os.environ.setdefault("DATABASE_PATH", "/tmp/test.db")
 
 
 @pytest.fixture
