@@ -8,6 +8,7 @@ from app.engines.cusum.router import router as cusum_router
 from app.engines.data.router import router as data_router
 from app.engines.features.router import router as features_router
 from app.engines.regime.router import router as regime_router
+from app.engines.breakout.router import router as breakout_router
 
 
 @asynccontextmanager
@@ -30,6 +31,7 @@ def create_app() -> FastAPI:
     app.include_router(data_router)
     app.include_router(features_router)
     app.include_router(regime_router)
+    app.include_router(breakout_router)
 
     @app.get("/health")
     def health():
