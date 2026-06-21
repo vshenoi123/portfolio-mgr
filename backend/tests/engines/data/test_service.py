@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock
 
 

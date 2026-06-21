@@ -46,7 +46,10 @@ def _cusum_algorithm(values: np.ndarray, threshold: float, drift: float) -> dict
             change_prob = min(1.0, max_neg / (threshold * 2))
         days_since = n - change_point - 1
     else:
-        direction = "none"; change_point = None; days_since = None; change_prob = 0.0
+        direction = "none"
+        change_point = None
+        days_since = None
+        change_prob = 0.0
 
     return {
         "detected": detected,

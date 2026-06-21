@@ -3,7 +3,6 @@ Integration tests for the data pipeline end-to-end.
 Uses real DuckDB and filesystem, mocks Polygon API.
 """
 
-import pytest
 import os
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock

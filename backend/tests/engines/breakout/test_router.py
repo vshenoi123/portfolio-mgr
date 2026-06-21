@@ -1,7 +1,6 @@
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
-from unittest.mock import patch, MagicMock
 
 
 pytestmark = pytest.mark.asyncio
