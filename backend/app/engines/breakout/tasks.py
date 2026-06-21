@@ -45,3 +45,13 @@ def _save_breakouts(ticker: str, signals: list) -> str:
     path = os.path.join(signals_dir, f"{ticker.lower()}_{date_str}.parquet")
     pd.DataFrame(signals).to_parquet(path, index=False)
     return path
+
+
+@shared_task
+def compute_all_breakouts(days: int = 365) -> list[dict]:
+    from app.models.universe import DEFAULT_UNIVERSE
+    results = []
+    for ticker in DEFAULT_UNIVERSE:
+        result = compute_breakouts.delay(ticker, days=days)
+        results.append(result)
+    return results

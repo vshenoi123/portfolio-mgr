@@ -18,5 +18,21 @@ celery_app.conf.update(
             "task": "app.engines.data.tasks.refresh_all_data",
             "schedule": 86400.0,
         },
+        "compute-all-features-daily": {
+            "task": "app.engines.features.tasks.compute_all_features",
+            "schedule": 86400.0,
+        },
+        "compute-all-regimes-daily": {
+            "task": "app.engines.regime.tasks.compute_all_regimes",
+            "schedule": 86400.0,
+        },
+        "compute-all-cusum-daily": {
+            "task": "app.engines.cusum.tasks.compute_all_cusum",
+            "schedule": 86400.0,
+        },
+        "compute-all-breakouts-daily": {
+            "task": "app.engines.breakout.tasks.compute_all_breakouts",
+            "schedule": 86400.0,
+        },
     },
 )
