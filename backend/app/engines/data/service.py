@@ -70,6 +70,10 @@ class PolygonDataService:
         ticker = bars[0]["ticker"]
         parquet_dir = self._ensure_parquet_dir(ticker, "ohlcv")
         parquet_path = os.path.join(parquet_dir, f"{ticker.lower()}.parquet")
+        if os.path.exists(parquet_path):
+            existing = pd.read_parquet(parquet_path)
+            df = pd.concat([existing, df], ignore_index=True)
+            df = df.drop_duplicates(subset=["ticker", "timestamp"]).sort_values("timestamp").reset_index(drop=True)
         df.to_parquet(parquet_path, index=False)
         logger.info("Saved %d bars for %s to %s", len(bars), ticker, parquet_path)
         return parquet_path

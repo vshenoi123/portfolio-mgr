@@ -16,3 +16,12 @@ def test_data_dir(tmp_path):
     data_dir = tmp_path / "market_data"
     data_dir.mkdir(parents=True, exist_ok=True)
     return str(data_dir)
+
+
+@pytest.fixture(autouse=True)
+def _override_data_dir(test_data_dir):
+    from app.config import settings
+    old_data_dir = settings.data_dir
+    settings.data_dir = test_data_dir
+    yield
+    settings.data_dir = old_data_dir
