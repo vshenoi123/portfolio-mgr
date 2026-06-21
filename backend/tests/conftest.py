@@ -25,3 +25,11 @@ def _override_data_dir(test_data_dir):
     settings.data_dir = test_data_dir
     yield
     settings.data_dir = old_data_dir
+
+
+@pytest.fixture
+def client():
+    from app.main import app
+    from fastapi.testclient import TestClient
+    with TestClient(app) as c:
+        yield c

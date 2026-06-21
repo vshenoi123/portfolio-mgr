@@ -1,0 +1,137 @@
+name: Deploy to OCI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  OCI_REGION: us-ashburn-1
+  BACKEND_IMAGE: ${{ vars.OCI_REGISTRY }}/portfolio-mgr-backend
+  FRONTEND_IMAGE: ${{ vars.OCI_REGISTRY }}/portfolio-mgr-frontend
+  NGINX_IMAGE: ${{ vars.OCI_REGISTRY }}/portfolio-mgr-nginx
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - run: pip install -r backend/requirements.txt
+        working-directory: backend
+
+      - run: pip install pytest httpx
+        working-directory: backend
+
+      - run: python -m pytest tests/ -v
+        working-directory: backend
+        env:
+          POLYGON_API_KEY: test
+          DATABASE_PATH: /tmp/test.db
+          DATA_DIR: /tmp/data
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OCI CLI
+        run: |
+          curl -L -O https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh
+          bash install.sh --accept-all-defaults
+          echo "$HOME/bin" >> $GITHUB_PATH
+
+      - name: Configure OCI CLI
+        run: |
+          oci setup config --cli-rc-file /dev/null \
+            --region ${{ env.OCI_REGION }} \
+            --tenancy-id ${{ secrets.OCI_TENANCY_ID }} \
+            --user-id ${{ secrets.OCI_USER_ID }} \
+            --key-file /dev/stdin \
+            --pass-phrase "" <<< "${{ secrets.OCI_KEY_FILE }}"
+
+      - name: Login to OCI Registry
+        run: |
+          oci auth session authenticate
+          docker login ${{ vars.OCI_REGISTRY }} \
+            -u ${{ secrets.OCI_USER }} \
+            -p ${{ secrets.OCI_AUTH_TOKEN }}
+
+      - name: Build and push backend
+        run: |
+          docker build -t $BACKEND_IMAGE:latest -t $BACKEND_IMAGE:${{ github.sha }} ./backend
+          docker push $BACKEND_IMAGE:latest
+          docker push $BACKEND_IMAGE:${{ github.sha }}
+
+      - name: Build and push frontend
+        run: |
+          docker build -t $FRONTEND_IMAGE:latest -t $FRONTEND_IMAGE:${{ github.sha }} ./frontend
+          docker push $FRONTEND_IMAGE:latest
+          docker push $FRONTEND_IMAGE:${{ github.sha }}
+
+      - name: Build and push nginx
+        run: |
+          docker build -t $NGINX_IMAGE:latest -t $NGINX_IMAGE:${{ github.sha }} ./infra/nginx
+          docker push $NGINX_IMAGE:latest
+          docker push $NGINX_IMAGE:${{ github.sha }}
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to VM
+        run: |
+          ssh opc@${{ secrets.VM_HOST }} bash -s << 'DEPLOY_SCRIPT'
+            set -euo pipefail
+            cd /home/opc/portfolio-mgr
+
+            export OCI_REGISTRY=${{ vars.OCI_REGISTRY }}
+            export BACKEND_IMAGE=${{ vars.OCI_REGISTRY }}/portfolio-mgr-backend
+            export FRONTEND_IMAGE=${{ vars.OCI_REGISTRY }}/portfolio-mgr-frontend
+            export NGINX_IMAGE=${{ vars.OCI_REGISTRY }}/portfolio-mgr-nginx
+
+            echo "${{ secrets.OCI_AUTH_TOKEN }}" | docker login $OCI_REGISTRY \
+              -u ${{ secrets.OCI_USER }} --password-stdin
+
+            docker compose pull
+            docker compose up -d --remove-orphans
+
+            echo "Waiting for services..."
+            sleep 10
+            for i in $(seq 1 12); do
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || true)
+              if [ "$STATUS" = "200" ]; then
+                echo "Backend healthy (attempt $i)"
+                break
+              fi
+              echo "Attempt $i: got $STATUS, retrying..."
+              sleep 5
+            done
+
+            docker image prune -f
+            echo "Deploy complete."
+          DEPLOY_SCRIPT
+
+      - name: Post-deploy health check
+        run: |
+          sleep 15
+          curl -f --retry 5 --retry-delay 10 \
+            "https://${{ secrets.VM_DOMAIN }}/health" || \
+            curl -f --retry 5 --retry-delay 10 \
+            "http://${{ secrets.VM_HOST }}:8000/health" || \
+            (echo "Health check failed!" && exit 1)

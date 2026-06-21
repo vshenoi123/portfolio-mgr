@@ -18,6 +18,9 @@ from app.engines.monitoring.router import router as monitoring_router
 from app.engines.trading.router import router as trading_router
 from app.engines.ai_manager.router import router as ai_router
 from app.engines.self_learning.router import router as self_learning_router
+from app.engines.monte_carlo.router import router as monte_carlo_router
+from app.engines.stress_test.router import router as stress_test_router
+from app.health import get_health
 
 
 @asynccontextmanager
@@ -30,7 +33,7 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="AI Portfolio Manager", version="0.6.0", lifespan=lifespan)
+    app = FastAPI(title="AI Portfolio Manager", version="1.0.0", lifespan=lifespan)
 
     app.include_router(cusum_router)
     app.include_router(data_router)
@@ -46,10 +49,12 @@ def create_app() -> FastAPI:
     app.include_router(trading_router)
     app.include_router(ai_router)
     app.include_router(self_learning_router)
+    app.include_router(monte_carlo_router)
+    app.include_router(stress_test_router)
 
     @app.get("/health")
-    def health():
-        return {"status": "ok", "version": "0.6.0"}
+    async def health():
+        return get_health()
 
     return app
 

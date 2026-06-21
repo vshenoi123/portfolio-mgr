@@ -85,5 +85,15 @@ celery_app.conf.update(
             "task": "app.engines.self_learning.tasks.compute_signal_efficacy_task",
             "schedule": 86400.0,
         },
+        # Phase 7
+        "run-daily-monte-carlo": {
+            "task": "app.engines.monte_carlo.tasks.run_daily_monte_carlo",
+            "schedule": 86400.0,
+            "kwargs": {"ticker": "SPY"},
+        },
+        "run-weekly-stress-test": {
+            "task": "app.engines.stress_test.tasks.run_weekly_stress_test",
+            "schedule": 604800.0,
+        },
     },
 )
