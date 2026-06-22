@@ -21,9 +21,9 @@ def get_universe():
 
 
 @router.get("/universe/polygon")
-def get_polygon_universe(tickers_per_type: int = 100):
+def get_polygon_universe():
     from app.models.universe import fetch_universe_from_polygon
-    tickers = fetch_universe_from_polygon(tickers_per_type=tickers_per_type)
+    tickers = fetch_universe_from_polygon()
     return {"tickers": tickers, "count": len(tickers)}
 
 

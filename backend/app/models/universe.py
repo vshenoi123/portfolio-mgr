@@ -1,5 +1,4 @@
 import logging
-from itertools import islice
 from pydantic import BaseModel, field_validator
 from polygon import RESTClient
 
@@ -10,31 +9,17 @@ logger = logging.getLogger(__name__)
 _cached_universe: list[str] | None = None
 
 
-def fetch_universe_from_polygon(
-    tickers_per_type: int = 1000,
-) -> list[str]:
-    """Fetch all active stock and ETF tickers from Polygon API."""
+def fetch_universe_from_polygon() -> list[str]:
+    """Fetch all active stock and ETF tickers from Polygon API (no cap)."""
     global _cached_universe
     try:
         client = RESTClient(settings.polygon_api_key)
         tickers = set()
 
-        stock_resp = client.list_tickers(
-            market="stocks",
-            type="CS",
-            active=True,
-            limit=tickers_per_type,
-        )
-        for t in islice(stock_resp, tickers_per_type):
+        for t in client.list_tickers(market="stocks", type="CS", active=True, limit=1000):
             tickers.add(t.ticker.upper())
 
-        etf_resp = client.list_tickers(
-            market="stocks",
-            type="ETF",
-            active=True,
-            limit=500,
-        )
-        for t in islice(etf_resp, 500):
+        for t in client.list_tickers(market="stocks", type="ETF", active=True, limit=1000):
             tickers.add(t.ticker.upper())
 
         result = sorted(tickers)
