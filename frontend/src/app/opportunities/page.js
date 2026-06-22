@@ -8,6 +8,7 @@ import { useTickerDetails } from '@/hooks/useTickerDetails';
 import { getOpportunities } from '@/lib/api';
 
 const STRATEGIES = ['all', 'swing', 'csp', 'leaps', 'pmcc'];
+const ASSET_TYPES = ['all', 'stocks', 'etfs'];
 
 function formatMarketCap(mc) {
   if (!mc) return '';
@@ -56,6 +57,7 @@ function ScoreExplanations() {
 
 export default function OpportunitiesPage() {
   const [filter, setFilter] = useState('all');
+  const [assetFilter, setAssetFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [opps, setOpps] = useState([]);
@@ -68,7 +70,7 @@ export default function OpportunitiesPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getOpportunities(strategyType, 20);
+      const data = await getOpportunities(strategyType, 50);
       setOpps(data.opportunities || []);
     } catch (e) {
       setError(e.message);
@@ -81,6 +83,15 @@ export default function OpportunitiesPage() {
 
   const handleRefresh = () => fetchData(filter);
 
+  const filteredOpps = opps.filter((opp) => {
+    if (assetFilter === 'etfs') return (details[opp.ticker] || {}).type === 'etf';
+    if (assetFilter === 'stocks') return (details[opp.ticker] || {}).type !== 'etf';
+    return true;
+  });
+
+  const stockCount = opps.filter((o) => (details[o.ticker] || {}).type !== 'etf').length;
+  const etfCount = opps.filter((o) => (details[o.ticker] || {}).type === 'etf').length;
+
   return (
     <div className="space-y-6 max-w-7xl">
       <div className="flex items-center justify-between">
@@ -91,25 +102,44 @@ export default function OpportunitiesPage() {
         </button>
       </div>
 
-      {/* Score Guide */}
       <ScoreExplanations />
 
-      {/* Filter Bar */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Filter size={16} className="text-terminal-text-muted" />
-        {STRATEGIES.map((s) => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className={`px-3 py-1.5 text-sm font-mono rounded-lg border transition-colors uppercase tracking-wider ${
-              filter === s
-                ? 'bg-terminal-green/10 text-terminal-green border-terminal-green/30'
-                : 'bg-terminal-bg-card text-terminal-text-muted border-terminal-border hover:border-terminal-green/20 hover:text-terminal-text'
-            }`}
-          >
-            {s === 'all' ? 'All' : s}
-          </button>
-        ))}
+      {/* Filters */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Filter size={16} className="text-terminal-text-muted" />
+          <span className="text-xs font-mono text-terminal-text-muted uppercase">Strategy</span>
+          {STRATEGIES.map((s) => (
+            <button
+              key={s}
+              onClick={() => setFilter(s)}
+              className={`px-3 py-1.5 text-sm font-mono rounded-lg border transition-colors uppercase tracking-wider ${
+                filter === s
+                  ? 'bg-terminal-green/10 text-terminal-green border-terminal-green/30'
+                  : 'bg-terminal-bg-card text-terminal-text-muted border-terminal-border hover:border-terminal-green/20 hover:text-terminal-text'
+              }`}
+            >
+              {s === 'all' ? 'All' : s}
+            </button>
+          ))}
+        </div>
+        <div className="w-px h-6 bg-terminal-border" />
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono text-terminal-text-muted uppercase">Asset</span>
+          {ASSET_TYPES.map((a) => (
+            <button
+              key={a}
+              onClick={() => setAssetFilter(a)}
+              className={`px-3 py-1.5 text-sm font-mono rounded-lg border transition-colors ${
+                assetFilter === a
+                  ? 'bg-terminal-green/10 text-terminal-green border-terminal-green/30'
+                  : 'bg-terminal-bg-card text-terminal-text-muted border-terminal-border hover:border-terminal-green/20 hover:text-terminal-text'
+              }`}
+            >
+              {a === 'all' ? 'All' : a === 'stocks' ? `Stocks (${stockCount})` : `ETFs (${etfCount})`}
+            </button>
+          ))}
+        </div>
       </div>
 
       {error && (
@@ -119,7 +149,6 @@ export default function OpportunitiesPage() {
         </div>
       )}
 
-      {/* Loading */}
       {loading ? (
         <div className="animate-pulse grid grid-cols-1 md:grid-cols-2 gap-6">
           {[1, 2, 3, 4].map((i) => (
@@ -128,7 +157,7 @@ export default function OpportunitiesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {opps.map((opp, i) => {
+          {filteredOpps.map((opp, i) => {
             const info = details[opp.ticker] || {};
             const detailTags = [
               info.last_price ? `$${info.last_price.toFixed(2)}` : null,
@@ -172,13 +201,12 @@ export default function OpportunitiesPage() {
         </div>
       )}
 
-      {!loading && !error && opps.length === 0 && (
+      {!loading && !error && filteredOpps.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-terminal-text-muted font-sans">No opportunities found for <span className="font-mono text-terminal-text">{filter}</span></p>
+          <p className="text-terminal-text-muted font-sans">No {assetFilter === 'all' ? '' : assetFilter + ' '}opportunities found for <span className="font-mono text-terminal-text">{filter}</span></p>
         </div>
       )}
 
-      {/* Trade Generation Modal */}
       {tradeTicker && (
         <TradeGenerationModal ticker={tradeTicker} onClose={() => setTradeTicker(null)} />
       )}

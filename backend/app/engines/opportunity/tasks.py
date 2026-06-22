@@ -67,31 +67,20 @@ def _load_todays_signals() -> list[dict]:
                     pass
     if not combined:
         combined = _generate_synthetic_signals()
-    else:
-        from app.engines.data.ticker_details import get_ticker_details
-        tickers = list({s.get("ticker", "") for s in combined})
-        details = get_ticker_details(tickers)
-        combined = [s for s in combined if details.get(s.get("ticker", ""), {}).get("type") != "etf"]
     return combined
 
 
 def _generate_synthetic_signals() -> list[dict]:
     import numpy as np
     from app.models.universe import get_universe
-    from app.engines.data.ticker_details import get_ticker_details
     rng = np.random.default_rng(42)
-    all_tickers = get_universe()
-    details = get_ticker_details(all_tickers)
-    stocks = [t for t in all_tickers if details.get(t, {}).get("type") != "etf"]
-    if not stocks:
-        stocks = all_tickers
     return [{"ticker": t, "regime_score": float(rng.uniform(20, 95)),
         "breakout_score": float(rng.uniform(10, 90)),
         "relative_strength_score": float(rng.uniform(15, 95)),
         "cusum_score": float(rng.uniform(10, 80)),
         "volume_score": float(rng.uniform(20, 85)),
         "trend_score": float(rng.uniform(25, 90))}
-        for t in stocks]
+        for t in get_universe()]
 
 
 def _save_opportunities(scores: list) -> str:
