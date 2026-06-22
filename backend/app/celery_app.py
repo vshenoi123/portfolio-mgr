@@ -12,7 +12,14 @@ else:
     logger.critical("Celery broker URL from env: %s", redis_url)
 
 celery_app = Celery("portfolio_mgr", broker=redis_url, backend=redis_url)
-celery_app.set_as_current
+
+# Register as the current app so shared_task.delay() uses this broker
+import celery._state as _state
+_state._current_app = celery_app
+_state._apps.add(celery_app)
+logger.critical("Registered celery_app as current app: %s", id(celery_app))
+logger.critical("_state._current_app: %s", id(_state._current_app))
+logger.critical("_state._current_app broker: %s", _state._current_app.conf.broker_url)
 
 celery_app.conf.update(
     broker_url=redis_url,
