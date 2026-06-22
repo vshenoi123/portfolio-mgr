@@ -28,7 +28,7 @@ class OllamaProvider(LLMProvider):
 
 
 class GeminiProvider(LLMProvider):
-    def __init__(self, api_key: str, model: str = "gemini-2.0-flash"):
+    def __init__(self, api_key: str, model: str = "gemini-2.0-flash-lite"):
         self.llm = ChatGoogleGenerativeAI(google_api_key=api_key, model=model, temperature=0.3)
 
     def generate(self, prompt: str, **kwargs) -> str:
@@ -43,5 +43,5 @@ class LLMFactory:
         elif provider == "ollama":
             return OllamaProvider(base_url=kwargs.get("base_url", "http://localhost:11434"))
         elif provider == "gemini":
-            return GeminiProvider(api_key=kwargs.get("api_key", ""))
+            return GeminiProvider(api_key=kwargs.get("api_key", ""), model=kwargs.get("model", "gemini-2.0-flash-lite"))
         raise ValueError(f"Unknown provider: {provider}")

@@ -23,6 +23,7 @@ class ReportService:
                     api_key = getattr(settings, "openai_api_key", "")
                 self._provider = LLMFactory.create(
                     provider=prov, api_key=api_key,
+                    model=getattr(settings, "gemini_model", "gemini-2.0-flash-lite"),
                     base_url=getattr(settings, "ollama_base_url", "http://localhost:11434"),
                 )
             except Exception as e:

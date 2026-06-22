@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     llm_provider: str = "openai"
     openai_api_key: str = ""
     google_api_key: str = ""
+    gemini_model: str = "gemini-2.0-flash"
 
     # Phase 4: Risk limits
     max_position_size_pct: float = 15.0
