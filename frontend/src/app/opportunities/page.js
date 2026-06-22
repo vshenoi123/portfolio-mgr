@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Filter, RefreshCw, Zap } from 'lucide-react';
+import { Filter, RefreshCw, Zap, Clock } from 'lucide-react';
 import StrategyCard from '@/components/shared/StrategyCard';
 import TradeGenerationModal from '@/components/shared/TradeGenerationModal';
 import { getOpportunities } from '@/lib/api';
 import { getCachedOpportunities, setCachedOpportunities, clearOpportunitiesCache } from '@/lib/opportunitiesCache';
+import { isMarketOpen } from '@/lib/marketHours';
 
 const STRATEGIES = ['all', 'swing', 'csp', 'leaps', 'pmcc'];
 const ASSET_TYPES = ['stocks', 'etfs'];
@@ -189,10 +190,11 @@ export default function OpportunitiesPage() {
                   )}
                   <button
                     onClick={() => setTradeTicker(opp.ticker)}
-                    className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-mono font-semibold text-black bg-terminal-green rounded-lg hover:bg-terminal-green-dark transition-colors"
+                    disabled={!isMarketOpen()}
+                    className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-mono font-semibold text-black bg-terminal-green rounded-lg hover:bg-terminal-green-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    <Zap size={14} />
-                    Generate Trade
+                    {isMarketOpen() ? <Zap size={14} /> : <Clock size={14} />}
+                    {isMarketOpen() ? 'Generate Trade' : 'Market Closed'}
                   </button>
                 </StrategyCard>
               </div>

@@ -192,8 +192,10 @@ def fetch_chain_with_snapshots(
 
 
 def find_nearest_contract(contracts: list[dict], target_delta: float = 0.30) -> dict | None:
-    """Find the contract with delta closest to target_delta that has a valid quote."""
-    valid = [c for c in contracts if c.get("delta") is not None and c.get("bid") is not None]
+    """Find the contract with delta closest to target_delta that has a valid price (bid or last_trade)."""
+    valid = [c for c in contracts if c.get("delta") is not None]
     if not valid:
         return None
-    return min(valid, key=lambda c: abs(abs(c["delta"]) - abs(target_delta)))
+    # Prefer contracts with an active quote (bid), fall back to last trade (after hours)
+    best = min(valid, key=lambda c: abs(abs(c["delta"]) - abs(target_delta)))
+    return best if best.get("bid") is not None or best.get("last_price") is not None else None

@@ -1,6 +1,8 @@
 import logging
+from datetime import date, datetime, time, timezone
+from zoneinfo import ZoneInfo
+
 import numpy as np
-from datetime import datetime, timezone
 
 from app.engines.strategy.service import select_strategy, rule_based_scores
 from app.engines.data.service import PolygonDataService
@@ -108,6 +110,16 @@ STRATEGY_MAP = {
 }
 
 
+def _is_market_open() -> bool:
+    """Check if US equities market is currently open (Mon–Fri 9:30–16:00 ET)."""
+    now_et = datetime.now(ZoneInfo("America/New_York"))
+    if now_et.weekday() >= 5:
+        return False
+    market_open = time(9, 30)
+    market_close = time(16, 0)
+    return market_open <= now_et.time() <= market_close
+
+
 def generate_trade(ticker: str, dte: int = 30, target_delta: float = 0.30) -> dict:
     """Full pipeline: market data -> strategy -> option generation."""
     context = build_context_from_market_data(ticker)
@@ -125,6 +137,21 @@ def generate_trade(ticker: str, dte: int = 30, target_delta: float = 0.30) -> di
 
     underlying_price = context["underlying_price"]
 
+    if not _is_market_open():
+        return {
+            "ticker": ticker,
+            "strategy_output": strategy_output.model_dump(),
+            "trade": None,
+            "message": "Market is closed — trade generation available during RTH (9:30 AM – 4:00 PM ET, Mon–Fri)",
+            "context": {
+                "regime": context["regime"],
+                "momentum": context["momentum"],
+                "rsi": context["rsi"],
+                "iv_percentile": context["iv_percentile"],
+                "drawdown": context["drawdown"],
+            },
+        }
+
     # Fetch live options chain from Polygon
     try:
         from app.engines.options.polygon_chain import fetch_chain_with_snapshots, find_nearest_contract
@@ -136,7 +163,7 @@ def generate_trade(ticker: str, dte: int = 30, target_delta: float = 0.30) -> di
         live_contracts = fetch_chain_with_snapshots(ticker, contract_type, dte_min, dte_max, underlying_price=underlying_price)
         nearest = find_nearest_contract(live_contracts, target_delta) if live_contracts else None
 
-        if not nearest or nearest.get("bid") is None:
+        if not nearest or (nearest.get("bid") is None and nearest.get("last_price") is None):
             return {
                 "ticker": ticker,
                 "strategy_output": strategy_output.model_dump(),

@@ -255,14 +255,25 @@ def generate_covered_call(
     )
 
 
+def _resolve_price(live: dict) -> tuple[float | None, float | None]:
+    """Resolve bid/ask from live data, falling back to last_price (after hours)."""
+    bid = live.get("bid") if live.get("bid") is not None else live.get("last_price")
+    ask = live.get("ask") if live.get("ask") is not None else live.get("last_price")
+    return bid, ask
+
+
 def generate_csp_live(ticker: str, live: dict) -> CSPOption | None:
     """Generate CSP trade using live Polygon data instead of Black-Scholes."""
-    if not live or live.get("strike") is None or live.get("bid") is None:
+    if not live or live.get("strike") is None:
+        return None
+    bid, ask = _resolve_price(live)
+    if bid is None:
         return None
 
     strike = live["strike"]
     underlying = live.get("underlying_price", 0)
-    premium = live.get("midpoint") or ((live["bid"] + live["ask"]) / 2)
+    midpoint = live.get("midpoint") or ((bid + (ask or bid)) / 2)
+    premium = midpoint
     T = live.get("dte", 30) / 365.0
 
     iv = live.get("iv", 0.30)
@@ -282,8 +293,8 @@ def generate_csp_live(ticker: str, live: dict) -> CSPOption | None:
         theta=round(live.get("theta", 0) or 0, 6),
         vega=round(live.get("vega", 0) or 0, 4),
         rho=0.0,
-        bid=round(live["bid"], 2),
-        ask=round(live["ask"], 2),
+        bid=round(bid, 2),
+        ask=round(ask or bid, 2),
         last_price=round(live.get("last_price", premium) or premium, 2),
         open_interest=live.get("open_interest", 0) or 0,
         volume=live.get("volume", 0) or 0,
@@ -299,12 +310,15 @@ def generate_csp_live(ticker: str, live: dict) -> CSPOption | None:
 
 def generate_leaps_live(ticker: str, live: dict) -> LEAPSOption | None:
     """Generate LEAPS trade using live Polygon data."""
-    if not live or live.get("strike") is None or live.get("bid") is None:
+    if not live or live.get("strike") is None:
+        return None
+    bid, ask = _resolve_price(live)
+    if bid is None:
         return None
 
     strike = live["strike"]
     underlying = live.get("underlying_price", 0)
-    premium = live.get("midpoint") or ((live["bid"] + live["ask"]) / 2)
+    premium = live.get("midpoint") or ((bid + (ask or bid)) / 2)
     iv = live.get("iv", 0.30)
     intrinsic = max(0.0, underlying - strike)
     time_val = premium - intrinsic

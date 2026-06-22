@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, RefreshCw, Send, AlertTriangle, CheckCircle } from 'lucide-react';
+import { X, RefreshCw, Send, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import { generateTrade, executeTrade } from '@/lib/api';
+import { isMarketOpen } from '@/lib/marketHours';
 
 function formatCurrency(v) {
   if (v == null) return '-';
@@ -95,6 +96,14 @@ export default function TradeGenerationModal({ ticker, onClose }) {
             <X size={20} />
           </button>
         </div>
+
+        {/* Market closed banner */}
+        {!isMarketOpen() && (
+          <div className="mx-5 mt-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 flex items-center gap-3">
+            <Clock size={14} className="text-yellow-400 shrink-0" />
+            <p className="text-xs font-mono text-yellow-400">Market is closed — trade generation available 9:30 AM – 4:00 PM ET Mon–Fri</p>
+          </div>
+        )}
 
         {/* Parameters */}
         <div className="p-5 border-b border-terminal-border">
