@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Save, Bell, Shield, DollarSign, RefreshCw, Play, RotateCcw, Activity, BarChart3, AlertTriangle, FileText } from 'lucide-react';
 import StatusDot from '@/components/shared/StatusDot';
+import { clearOpportunitiesCache } from '@/lib/opportunitiesCache';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
@@ -142,6 +143,9 @@ export default function SettingsPage() {
       const res = await fetch(`${API_BASE}${action.endpoint}`, opts);
       const data = await res.json();
       setResults((prev) => ({ ...prev, [action.id]: { success: true, data } }));
+      if (action.id === 'refresh_all') {
+        clearOpportunitiesCache();
+      }
     } catch (err) {
       setResults((prev) => ({ ...prev, [action.id]: { error: err.message } }));
     } finally {

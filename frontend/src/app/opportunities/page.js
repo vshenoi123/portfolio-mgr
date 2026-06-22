@@ -6,6 +6,7 @@ import StrategyCard from '@/components/shared/StrategyCard';
 import TradeGenerationModal from '@/components/shared/TradeGenerationModal';
 import { useTickerDetails } from '@/hooks/useTickerDetails';
 import { getOpportunities } from '@/lib/api';
+import { getCachedOpportunities, setCachedOpportunities, clearOpportunitiesCache } from '@/lib/opportunitiesCache';
 
 const STRATEGIES = ['all', 'swing', 'csp', 'leaps', 'pmcc'];
 const ASSET_TYPES = ['all', 'stocks', 'etfs'];
@@ -66,11 +67,19 @@ export default function OpportunitiesPage() {
   const tickers = opps.map((o) => o.ticker);
   const { details } = useTickerDetails(tickers);
 
-  const fetchData = async (strategyType = 'all', assetType = 'all') => {
+  const fetchData = async (strategyType = 'all', forceRefresh = false) => {
+    const cached = getCachedOpportunities(strategyType);
+    if (cached && !forceRefresh) {
+      setOpps(cached.opportunities || []);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const data = await getOpportunities(strategyType, 50, assetType);
+      const data = await getOpportunities(strategyType, 50, 'all');
+      setCachedOpportunities(strategyType, data);
       setOpps(data.opportunities || []);
     } catch (e) {
       setError(e.message);
@@ -79,9 +88,18 @@ export default function OpportunitiesPage() {
     }
   };
 
-  useEffect(() => { fetchData(filter, assetFilter); }, [filter, assetFilter]);
+  useEffect(() => { fetchData(filter); }, [filter]);
 
-  const handleRefresh = () => fetchData(filter, assetFilter);
+  const handleRefresh = () => {
+    clearOpportunitiesCache();
+    fetchData(filter, true);
+  };
+
+  const filteredOpps = opps.filter((opp) => {
+    if (assetFilter === 'etfs') return (details[opp.ticker] || {}).type === 'etf';
+    if (assetFilter === 'stocks') return (details[opp.ticker] || {}).type !== 'etf';
+    return true;
+  });
 
   const stockCount = opps.filter((o) => (details[o.ticker] || {}).type !== 'etf').length;
   const etfCount = opps.filter((o) => (details[o.ticker] || {}).type === 'etf').length;
@@ -151,7 +169,7 @@ export default function OpportunitiesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {opps.map((opp, i) => {
+          {filteredOpps.map((opp, i) => {
             const info = details[opp.ticker] || {};
             const detailTags = [
               info.last_price ? `$${info.last_price.toFixed(2)}` : null,
@@ -195,7 +213,7 @@ export default function OpportunitiesPage() {
         </div>
       )}
 
-      {!loading && !error && opps.length === 0 && (
+      {!loading && !error && filteredOpps.length === 0 && (
         <div className="text-center py-12">
           <p className="text-terminal-text-muted font-sans">No {assetFilter === 'all' ? '' : assetFilter + ' '}opportunities found for <span className="font-mono text-terminal-text">{filter}</span></p>
         </div>
