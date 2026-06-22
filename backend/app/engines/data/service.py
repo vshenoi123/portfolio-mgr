@@ -41,8 +41,8 @@ class PolygonDataService:
                 ticker=ticker,
                 multiplier=multiplier,
                 timespan=timespan,
-                start=start.strftime("%Y-%m-%d"),
-                end=end.strftime("%Y-%m-%d"),
+                from_=start.strftime("%Y-%m-%d"),
+                to=end.strftime("%Y-%m-%d"),
                 adjusted=True,
             )
         except Exception as e:
