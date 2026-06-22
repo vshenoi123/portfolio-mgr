@@ -22,6 +22,7 @@ class CSPOption(BaseModel):
     days_to_expiration: int
     annualized_yield: float
     probability_of_profit: float
+    live_data: bool = False
     strategy: Literal["csp"] = "csp"
 
     @field_validator("delta")
@@ -60,6 +61,7 @@ class LEAPSOption(BaseModel):
     leverage_factor: float
     intrinsic_value: float
     time_value: float
+    live_data: bool = False
     strategy: Literal["leaps"] = "leaps"
 
     @field_validator("delta")
@@ -95,6 +97,7 @@ class PMMCOption(BaseModel):
     days_to_short_expiration: int
     probability_of_profit: float
     annualized_yield: float
+    live_data: bool = False
     strategy: Literal["pmcc"] = "pmcc"
 
     @field_validator("net_debit")
@@ -125,6 +128,7 @@ class CoveredCallOption(BaseModel):
     days_to_expiration: int
     annualized_yield: float
     probability_of_profit: float
+    live_data: bool = False
     strategy: Literal["covered_call"] = "covered_call"
 
     @field_validator("delta")

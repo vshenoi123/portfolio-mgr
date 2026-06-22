@@ -253,3 +253,120 @@ def generate_covered_call(
             probability_of_profit(underlying_price, K, T, risk_free_rate, implied_volatility, "call", premium), 4
         ),
     )
+
+
+def generate_csp_live(ticker: str, live: dict) -> CSPOption | None:
+    """Generate CSP trade using live Polygon data instead of Black-Scholes."""
+    if not live or live.get("strike") is None or live.get("bid") is None:
+        return None
+
+    strike = live["strike"]
+    underlying = live.get("underlying_price", 0)
+    premium = live.get("midpoint") or ((live["bid"] + live["ask"]) / 2)
+    T = live.get("dte", 30) / 365.0
+
+    iv = live.get("iv", 0.30)
+    r = 0.05
+    delta = live.get("delta") or 0
+    if delta < 0:
+        delta = abs(delta)
+
+    return CSPOption(
+        ticker=ticker,
+        strike=strike,
+        expiration=live.get("expiration_date", ""),
+        premium=round(premium, 2),
+        implied_volatility=iv,
+        delta=round(delta, 4),
+        gamma=round(live.get("gamma", 0) or 0, 6),
+        theta=round(live.get("theta", 0) or 0, 6),
+        vega=round(live.get("vega", 0) or 0, 4),
+        rho=0.0,
+        bid=round(live["bid"], 2),
+        ask=round(live["ask"], 2),
+        last_price=round(live.get("last_price", premium) or premium, 2),
+        open_interest=live.get("open_interest", 0) or 0,
+        volume=live.get("volume", 0) or 0,
+        underlying_price=underlying,
+        days_to_expiration=live.get("dte", 30),
+        annualized_yield=round(annualized_yield(premium, strike, live.get("dte", 30)), 4),
+        probability_of_profit=round(
+            probability_of_profit(underlying, strike, T, r, iv, "put", premium), 4
+        ),
+        live_data=True,
+    )
+
+
+def generate_leaps_live(ticker: str, live: dict) -> LEAPSOption | None:
+    """Generate LEAPS trade using live Polygon data."""
+    if not live or live.get("strike") is None or live.get("bid") is None:
+        return None
+
+    strike = live["strike"]
+    underlying = live.get("underlying_price", 0)
+    premium = live.get("midpoint") or ((live["bid"] + live["ask"]) / 2)
+    iv = live.get("iv", 0.30)
+    intrinsic = max(0.0, underlying - strike)
+    time_val = premium - intrinsic
+    leverage = (underlying / premium) if premium > 0 else 0.0
+
+    return LEAPSOption(
+        ticker=ticker,
+        strike=strike,
+        expiration=live.get("expiration_date", ""),
+        premium=round(premium, 2),
+        implied_volatility=iv,
+        delta=round(live.get("delta", 0.70) or 0.70, 4),
+        gamma=round(live.get("gamma", 0) or 0, 6),
+        theta=round(live.get("theta", 0) or 0, 6),
+        vega=round(live.get("vega", 0) or 0, 4),
+        rho=0.0,
+        bid=round(live["bid"], 2),
+        ask=round(live["ask"], 2),
+        last_price=round(live.get("last_price", premium) or premium, 2),
+        open_interest=live.get("open_interest", 0) or 0,
+        volume=live.get("volume", 0) or 0,
+        underlying_price=underlying,
+        days_to_expiration=live.get("dte", 180),
+        leverage_factor=round(leverage, 2),
+        intrinsic_value=round(intrinsic, 2),
+        time_value=round(time_val, 2),
+        live_data=True,
+    )
+
+
+def generate_covered_call_live(ticker: str, live: dict) -> CoveredCallOption | None:
+    """Generate Covered Call trade using live Polygon data."""
+    if not live or live.get("strike") is None or live.get("bid") is None:
+        return None
+
+    strike = live["strike"]
+    underlying = live.get("underlying_price", 0)
+    premium = live.get("midpoint") or ((live["bid"] + live["ask"]) / 2)
+    iv = live.get("iv", 0.30)
+    T = live.get("dte", 30) / 365.0
+
+    return CoveredCallOption(
+        ticker=ticker,
+        strike=strike,
+        expiration=live.get("expiration_date", ""),
+        premium=round(premium, 2),
+        implied_volatility=iv,
+        delta=round(abs(live.get("delta", 0.30) or 0.30), 4),
+        gamma=round(live.get("gamma", 0) or 0, 6),
+        theta=round(live.get("theta", 0) or 0, 6),
+        vega=round(live.get("vega", 0) or 0, 4),
+        rho=0.0,
+        bid=round(live["bid"], 2),
+        ask=round(live["ask"], 2),
+        last_price=round(live.get("last_price", premium) or premium, 2),
+        open_interest=live.get("open_interest", 0) or 0,
+        volume=live.get("volume", 0) or 0,
+        underlying_price=underlying,
+        days_to_expiration=live.get("dte", 30),
+        annualized_yield=round(annualized_yield(premium, underlying, live.get("dte", 30)), 4),
+        probability_of_profit=round(
+            probability_of_profit(underlying, strike, T, 0.05, iv, "call", premium), 4
+        ),
+        live_data=True,
+    )

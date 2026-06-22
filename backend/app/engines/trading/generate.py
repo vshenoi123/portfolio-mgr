@@ -3,7 +3,6 @@ import numpy as np
 from datetime import datetime, timezone
 
 from app.engines.strategy.service import select_strategy, rule_based_scores
-from app.engines.options.service import generate_csp, generate_leaps, generate_pmcc, generate_covered_call
 from app.engines.data.service import PolygonDataService
 from app.engines.data.ticker_details import get_ticker_details
 
@@ -125,27 +124,76 @@ def generate_trade(ticker: str, dte: int = 30, target_delta: float = 0.30) -> di
         }
 
     underlying_price = context["underlying_price"]
-    iv = max(0.15, min(0.80, context["iv_percentile"] * 0.5 + 0.15))
 
-    trade = None
-    if option_strategy == "csp":
-        trade = generate_csp(ticker, underlying_price, iv, dte, target_delta)
-    elif option_strategy == "leaps":
-        trade = generate_leaps(ticker, underlying_price, iv, max(dte, 180), 0.70)
-    elif option_strategy == "pmcc":
-        trade = generate_pmcc(ticker, underlying_price, iv, max(dte, 180), 0.70)
-    elif option_strategy == "covered_call":
-        trade = generate_covered_call(ticker, underlying_price, iv, dte, target_delta)
+    # Fetch live options chain from Polygon
+    try:
+        from app.engines.options.polygon_chain import fetch_chain_with_snapshots, find_nearest_contract
 
-    return {
-        "ticker": ticker,
-        "strategy_output": strategy_output.model_dump(),
-        "trade": trade.model_dump() if trade else None,
-        "context": {
-            "regime": context["regime"],
-            "momentum": context["momentum"],
-            "rsi": context["rsi"],
-            "iv_percentile": context["iv_percentile"],
-            "drawdown": context["drawdown"],
-        },
-    }
+        contract_type = "put" if option_strategy in ("csp",) else "call"
+        dte_min = max(7, dte - 10)
+        dte_max = dte + 10
+
+        live_contracts = fetch_chain_with_snapshots(ticker, contract_type, dte_min, dte_max)
+        nearest = find_nearest_contract(live_contracts, target_delta) if live_contracts else None
+
+        if not nearest or nearest.get("bid") is None:
+            return {
+                "ticker": ticker,
+                "strategy_output": strategy_output.model_dump(),
+                "trade": None,
+                "message": f"Options data unavailable for {ticker} — no live contracts found with valid quotes",
+                "context": {
+                    "regime": context["regime"],
+                    "momentum": context["momentum"],
+                    "rsi": context["rsi"],
+                    "iv_percentile": context["iv_percentile"],
+                    "drawdown": context["drawdown"],
+                },
+            }
+
+        nearest["underlying_price"] = underlying_price
+        nearest["dte"] = dte
+
+        trade = None
+        if option_strategy == "csp":
+            from app.engines.options.service import generate_csp_live
+            trade = generate_csp_live(ticker, nearest)
+        elif option_strategy == "leaps":
+            from app.engines.options.service import generate_leaps_live
+            trade = generate_leaps_live(ticker, nearest)
+        elif option_strategy == "covered_call":
+            from app.engines.options.service import generate_covered_call_live
+            trade = generate_covered_call_live(ticker, nearest)
+
+        if trade:
+            trade.live_data = True
+
+        return {
+            "ticker": ticker,
+            "strategy_output": strategy_output.model_dump(),
+            "trade": trade.model_dump() if trade else None,
+            "live_data": True,
+            "context": {
+                "regime": context["regime"],
+                "momentum": context["momentum"],
+                "rsi": context["rsi"],
+                "iv_percentile": context["iv_percentile"],
+                "drawdown": context["drawdown"],
+            },
+        }
+
+    except Exception as e:
+        logger.warning("Live options chain failed for %s: %s", ticker, e)
+        return {
+            "ticker": ticker,
+            "strategy_output": strategy_output.model_dump(),
+            "trade": None,
+            "message": f"Options data unavailable for {ticker} — Polygon API error: {e}",
+            "context": {
+                "regime": context["regime"],
+                "momentum": context["momentum"],
+                "rsi": context["rsi"],
+                "iv_percentile": context["iv_percentile"],
+                "drawdown": context["drawdown"],
+            },
+        }
