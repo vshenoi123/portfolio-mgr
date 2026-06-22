@@ -20,15 +20,15 @@ DEFAULT_UNIVERSE = [
 
 
 def fetch_universe_from_polygon(
-    tickers_per_type: int = 100,
+    tickers_per_type: int = 1000,
     min_market_cap: float = 1e9,
 ) -> list[str]:
-    """Fetch active stock and ETF tickers from Polygon API."""
+    """Fetch all active stock and ETF tickers from Polygon API."""
     try:
         client = RESTClient(settings.polygon_api_key)
         tickers = set()
 
-        # Fetch active stocks — no sort param (Polygon API has limited sort fields)
+        # Fetch all active stocks, filter by market cap
         stock_resp = client.list_tickers(
             market="stocks",
             type="CS",
@@ -39,12 +39,12 @@ def fetch_universe_from_polygon(
             if hasattr(t, "market_cap") and t.market_cap and t.market_cap >= min_market_cap:
                 tickers.add(t.ticker.upper())
 
-        # Fetch active ETFs
+        # Fetch all active ETFs
         etf_resp = client.list_tickers(
             market="stocks",
             type="ETF",
             active=True,
-            limit=tickers_per_type,
+            limit=500,
         )
         for t in etf_resp:
             tickers.add(t.ticker.upper())
