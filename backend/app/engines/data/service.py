@@ -53,14 +53,14 @@ class PolygonDataService:
         for agg in aggs:
             bars.append({
                 "ticker": ticker.upper(),
-                "timestamp": datetime.fromtimestamp(agg.t / 1000, tz=timezone.utc),
-                "open": agg.o,
-                "high": agg.h,
-                "low": agg.l,
-                "close": agg.c,
-                "volume": agg.v,
-                "vwap": agg.vw if hasattr(agg, "vw") else None,
-                "trades": agg.n if hasattr(agg, "n") else None,
+                "timestamp": datetime.fromtimestamp(agg.timestamp / 1000, tz=timezone.utc),
+                "open": agg.open,
+                "high": agg.high,
+                "low": agg.low,
+                "close": agg.close,
+                "volume": agg.volume,
+                "vwap": agg.vwap,
+                "trades": agg.transactions,
             })
         return bars
 
