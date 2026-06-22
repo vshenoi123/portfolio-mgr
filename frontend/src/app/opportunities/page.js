@@ -131,6 +131,7 @@ export default function OpportunitiesPage() {
           {opps.map((opp, i) => {
             const info = details[opp.ticker] || {};
             const detailTags = [
+              info.last_price ? `$${info.last_price.toFixed(2)}` : null,
               info.exchange,
               info.type === 'etf' ? 'ETF' : null,
               formatMarketCap(info.market_cap),

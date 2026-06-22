@@ -191,6 +191,12 @@ export default function Dashboard() {
                   <span className="px-2 py-0.5 text-xs font-mono rounded bg-terminal-green/10 text-terminal-green border border-terminal-green/20 uppercase tracking-wider">{opp.strategy_type}</span>
                 </div>
                 <div className="flex items-center gap-6">
+                  {info.last_price && (
+                    <div className="text-right">
+                      <p className="text-xs text-terminal-text-muted font-mono">Price</p>
+                      <p className="text-sm font-mono text-terminal-text">${info.last_price.toFixed(2)}</p>
+                    </div>
+                  )}
                   <div className="text-right">
                     <p className="text-xs text-terminal-text-muted font-mono">Score</p>
                     <p className="text-sm font-mono text-terminal-text">{opp.total_score?.toFixed(1)}</p>
