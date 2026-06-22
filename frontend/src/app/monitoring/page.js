@@ -32,6 +32,9 @@ export default function MonitoringPage() {
   const [alerts, setAlerts] = useState([]);
 
   const positions = summary?.positions || [];
+  const openOrders = summary?.open_orders || [];
+  const health = summary?.health;
+  const portfolio = summary?.portfolio;
   const tickers = positions.map((p) => p.ticker);
   const { details } = useTickerDetails(tickers);
 
@@ -74,11 +77,6 @@ export default function MonitoringPage() {
       </div>
     );
   }
-
-  const positions = summary?.positions || [];
-  const openOrders = summary?.open_orders || [];
-  const health = summary?.health;
-  const portfolio = summary?.portfolio;
 
   const positionsForTable = positions.map((p) => ({
     ...p,
