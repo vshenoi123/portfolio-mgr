@@ -7,18 +7,6 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_UNIVERSE = [
-    "SPY", "QQQ", "IWM", "DIA", "XLF", "XLK", "XLE", "XLV",
-    "XLI", "XLP", "XLU", "XLB", "XLRE", "XLY",
-    "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA",
-    "JPM", "V", "JNJ", "WMT", "MA", "PG", "UNH", "HD", "BAC",
-    "DIS", "ADBE", "NFLX", "CRM", "KO", "PEP", "MRK", "ABBV",
-    "AVGO", "CSCO", "INTC", "AMD", "QCOM", "TMO", "ACN", "TXN",
-    "NKE", "UPS", "BA", "CAT", "GS", "MS", "C", "WFC",
-    "ORCL", "IBM", "PYPL", "SNAP", "UBER", "SQ", "SHOP",
-    "ARKK", "TLT", "HYG", "GDX", "SLV", "USO",
-]
-
 _cached_universe: list[str] | None = None
 
 
@@ -54,15 +42,13 @@ def fetch_universe_from_polygon(
         _cached_universe = result
         return result
     except Exception as e:
-        logger.warning("Failed to fetch from Polygon, using default universe: %s", e)
-        return DEFAULT_UNIVERSE
+        logger.warning("Failed to fetch from Polygon: %s", e)
+        return []
 
 
-def get_universe(use_api: bool = True) -> list[str]:
-    """Get ticker universe. Fetches from API (cached) with fallback to default."""
+def get_universe() -> list[str]:
+    """Get ticker universe from Polygon API (cached). Returns empty list if unavailable."""
     global _cached_universe
-    if not use_api:
-        return DEFAULT_UNIVERSE
     if _cached_universe:
         return _cached_universe
     return fetch_universe_from_polygon()

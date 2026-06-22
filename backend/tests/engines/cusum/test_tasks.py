@@ -27,10 +27,11 @@ class TestCUSUMTasks:
         result = compute_cusum("UNKNOWN")
         assert result["status"] == "error"
 
+    @patch("app.engines.cusum.tasks.get_universe")
     @patch("app.engines.cusum.tasks.compute_cusum")
-    def test_compute_all_cusum_task(self, mock_compute):
+    def test_compute_all_cusum_task(self, mock_compute, mock_get_universe):
         from app.engines.cusum.tasks import compute_all_cusum
-        from app.models.universe import DEFAULT_UNIVERSE
+        mock_get_universe.return_value = ["AAPL", "MSFT"]
         mock_compute.return_value = {"ticker": "TEST", "status": "success", "detected": False}
         results = compute_all_cusum()
-        assert len(results) == len(DEFAULT_UNIVERSE)
+        assert len(results) == 2

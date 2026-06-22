@@ -30,10 +30,11 @@ class TestFeatureTasks:
         result = compute_features("AAPL")
         assert result["status"] == "error"
 
+    @patch("app.engines.features.tasks.get_universe")
     @patch("app.engines.features.tasks.compute_features")
-    def test_compute_all_features_task(self, mock_compute):
+    def test_compute_all_features_task(self, mock_compute, mock_get_universe):
         from app.engines.features.tasks import compute_all_features
-        from app.models.universe import DEFAULT_UNIVERSE
+        mock_get_universe.return_value = ["AAPL", "MSFT", "GOOGL"]
         mock_compute.return_value = {"ticker": "TEST", "status": "success", "indicators_count": 1}
         results = compute_all_features()
-        assert len(results) == len(DEFAULT_UNIVERSE)
+        assert len(results) == 3

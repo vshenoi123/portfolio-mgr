@@ -86,7 +86,7 @@ def refresh_all_data(self, days: int = 365) -> dict:
     """Refresh all tickers concurrently with rate limiting."""
     from app.models.universe import get_universe
 
-    tickers = get_universe(use_api=True)
+    tickers = get_universe()
     total = len(tickers)
     logger.info("Starting batch refresh for %d tickers (concurrent)", total)
 
@@ -179,7 +179,7 @@ def run_full_refresh_pipeline(self, days: int = 365) -> dict:
     from app.engines.cusum.tasks import compute_cusum
     from app.engines.features.tasks import compute_features
 
-    tickers = get_universe(use_api=True)
+    tickers = get_universe()
     total = len(tickers)
     start_time = time.time()
     logger.info("=" * 60)

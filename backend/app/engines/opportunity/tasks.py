@@ -143,10 +143,19 @@ def _merge_signal_dirs() -> list[dict]:
                 merged[ticker]["volume_score"] = min(100, max(0, rel_vol * 25))
                 merged[ticker]["trend_score"] = min(100, max(0, trend.get("adx", 50)))
 
-    combined = list(merged.values())
-    if not combined:
-        combined = _generate_synthetic_signals()
-    return combined
+    return list(merged.values())
+
+
+SCORE_COLS = ["regime_score", "breakout_score", "cusum_score",
+              "relative_strength_score", "volume_score", "trend_score"]
+
+
+def _clean_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """Fill NaN scores with 0 and clip to [0, 100]."""
+    for col in SCORE_COLS:
+        if col in df.columns:
+            df[col] = df[col].fillna(0).clip(0, 100)
+    return df
 
 
 def _load_todays_signals() -> list[dict]:
@@ -155,7 +164,7 @@ def _load_todays_signals() -> list[dict]:
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     path = os.path.join(data_dir, "signals", "market_scan", f"{date_str}.parquet")
     if os.path.exists(path):
-        return pd.read_parquet(path).to_dict(orient="records")
+        return _clean_scores(pd.read_parquet(path)).to_dict(orient="records")
     return _merge_signal_dirs()
 
 
@@ -178,23 +187,12 @@ def build_market_scan() -> str:
         signals_df["type"] = signals_df["type"].fillna("stock")
         signals_df["market_cap"] = signals_df["market_cap"].fillna(0).astype(float)
 
+    signals_df = _clean_scores(signals_df)
+
     path = os.path.join(output_dir, f"{date_str}.parquet")
     signals_df.to_parquet(path, index=False)
     logger.info("Saved market scan: %s (%d rows)", path, len(signals_df))
     return path
-
-
-def _generate_synthetic_signals() -> list[dict]:
-    import numpy as np
-    from app.models.universe import get_universe
-    rng = np.random.default_rng(42)
-    return [{"ticker": t, "regime_score": float(rng.uniform(20, 95)),
-        "breakout_score": float(rng.uniform(10, 90)),
-        "relative_strength_score": float(rng.uniform(15, 95)),
-        "cusum_score": float(rng.uniform(10, 80)),
-        "volume_score": float(rng.uniform(20, 85)),
-        "trend_score": float(rng.uniform(25, 90))}
-        for t in get_universe(use_api=True)]
 
 
 def _save_opportunities(scores: list) -> str:

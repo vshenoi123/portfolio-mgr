@@ -42,22 +42,6 @@ def _enrich_with_prices(scores: list[OpportunityScore]) -> None:
         logger.warning("Failed to enrich with live prices: %s", e)
 
 
-def _fallback_opportunities() -> list[OpportunityScore]:
-    """Generate guaranteed fallback opportunities when pipeline fails."""
-    from app.engines.opportunity.tasks import _generate_synthetic_signals
-    try:
-        signals = _generate_synthetic_signals()
-        if signals:
-            scores = build_opportunity_scores(signals)
-            scores = rank_opportunities(scores, top_n=50, min_score=0.0)
-            _enrich_with_prices(scores)
-            logger.info("Fallback: generated %d synthetic opportunities", len(scores))
-            return scores
-    except Exception as e:
-        logger.error("Fallback also failed: %s", e)
-    return []
-
-
 def _respond(scores: list[OpportunityScore], asset_type: str, top_n: int) -> OpportunityResponse:
     stocks = [s for s in scores if s.asset_type != "etf"]
     etfs = [s for s in scores if s.asset_type == "etf"]
@@ -92,10 +76,7 @@ def get_opportunities(strategy_type: str = "all", top_n: int = 20, min_score: fl
     scores = rank_opportunities(scores, top_n=None, min_score=min_score)
 
     if not scores:
-        logger.warning("No opportunities from pipeline, using synthetic fallback")
-        scores = _fallback_opportunities()
-        if strategy_type != "all":
-            scores = filter_by_strategy(scores, strategy_type)
+        logger.info("No opportunities found — pipeline may still be running")
 
     _enrich_with_prices(scores)
 
@@ -122,9 +103,7 @@ def get_opportunities_by_strategy(strategy_type: str, top_n: int = 20, asset_typ
     scores = rank_opportunities(scores, top_n=None)
 
     if not scores:
-        logger.warning("No opportunities from pipeline, using synthetic fallback")
-        scores = _fallback_opportunities()
-        scores = filter_by_strategy(scores, strategy_type)
+        logger.info("No opportunities found — pipeline may still be running")
 
     _enrich_with_prices(scores)
 

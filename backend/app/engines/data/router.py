@@ -14,16 +14,10 @@ router = APIRouter(prefix="/api/v1/data", tags=["data"])
 
 
 @router.get("/universe")
-def get_universe(use_api: bool = False):
-    from app.models.universe import get_universe
-    tickers = get_universe(use_api=use_api)
-    return {"tickers": tickers, "count": len(tickers), "source": "polygon_api" if use_api else "default"}
-
-
-@router.get("/universe/default")
-def get_default_universe():
-    from app.models.universe import get_universe
-    return {"tickers": get_universe(), "count": len(get_universe())}
+def get_universe():
+    from app.models.universe import get_universe as _get_universe
+    tickers = _get_universe()
+    return {"tickers": tickers, "count": len(tickers)}
 
 
 @router.get("/universe/polygon")
@@ -64,7 +58,7 @@ def refresh_all(_=Depends(verify_api_key)):
     from app.engines.data.tasks import run_full_refresh_pipeline
     from app.core.celery_helpers import dispatch_task
     from app.models.universe import get_universe
-    tickers = get_universe(use_api=True)
+    tickers = get_universe()
     logger.info("Running full refresh pipeline for %d tickers (live from Polygon)", len(tickers))
     result = dispatch_task(run_full_refresh_pipeline)
     result["message"] = "Full refresh pipeline started: OHLCV → ticker_details → regime → breakouts → CUSUM → features"
