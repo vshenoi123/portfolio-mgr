@@ -50,12 +50,23 @@ def _load_todays_signals() -> list[dict]:
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     combined = []
     for st in ["regime", "breakouts", "cusum", "indicators"]:
-        path = os.path.join(data_dir, "signals", st, f"{date_str}.parquet")
-        if os.path.exists(path):
+        signals_dir = os.path.join(data_dir, "signals", st)
+        if not os.path.isdir(signals_dir):
+            continue
+        # Read batch file if exists (e.g. regime/{date}.parquet)
+        batch_path = os.path.join(signals_dir, f"{date_str}.parquet")
+        if os.path.exists(batch_path):
             try:
-                combined.extend(pd.read_parquet(path).to_dict(orient="records"))
+                combined.extend(pd.read_parquet(batch_path).to_dict(orient="records"))
             except Exception:
                 pass
+        # Also read per-ticker files (e.g. breakouts/{ticker}_{date}.parquet)
+        for f in os.listdir(signals_dir):
+            if f.endswith(f"_{date_str}.parquet") and f != f"{date_str}.parquet":
+                try:
+                    combined.extend(pd.read_parquet(os.path.join(signals_dir, f)).to_dict(orient="records"))
+                except Exception:
+                    pass
     if not combined:
         combined = _generate_synthetic_signals()
     return combined
@@ -63,7 +74,7 @@ def _load_todays_signals() -> list[dict]:
 
 def _generate_synthetic_signals() -> list[dict]:
     import numpy as np
-    from app.models.universe import DEFAULT_UNIVERSE
+    from app.models.universe import get_universe
     rng = np.random.default_rng(42)
     return [{"ticker": t, "regime_score": float(rng.uniform(20, 95)),
         "breakout_score": float(rng.uniform(10, 90)),
@@ -71,7 +82,7 @@ def _generate_synthetic_signals() -> list[dict]:
         "cusum_score": float(rng.uniform(10, 80)),
         "volume_score": float(rng.uniform(20, 85)),
         "trend_score": float(rng.uniform(25, 90))}
-        for t in DEFAULT_UNIVERSE[:20]]
+        for t in get_universe()]
 
 
 def _save_opportunities(scores: list) -> str:

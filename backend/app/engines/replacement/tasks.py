@@ -43,7 +43,7 @@ def _load_opportunities_for_replacement() -> list[dict]:
         except Exception:
             pass
     rng = np.random.default_rng(42)
-    from app.models.universe import DEFAULT_UNIVERSE
+    from app.models.universe import get_universe
     sectors = ["TECHNOLOGY", "FINANCIAL", "HEALTHCARE", "ENERGY", "CONSUMER_CYCLICAL"]
     return [{"ticker": t, "score": float(rng.uniform(30, 95)), "sector": sectors[i % len(sectors)]}
-            for i, t in enumerate(DEFAULT_UNIVERSE[:10])]
+            for i, t in enumerate(get_universe()[:10])]

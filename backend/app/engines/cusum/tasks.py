@@ -33,9 +33,9 @@ def compute_cusum(self, ticker: str, lookback_days: int = 365) -> dict:
 
 @shared_task
 def compute_all_cusum(lookback_days: int = 365) -> list[dict]:
-    from app.models.universe import DEFAULT_UNIVERSE
+    from app.models.universe import get_universe
     results = []
-    for ticker in DEFAULT_UNIVERSE:
+    for ticker in get_universe():
         result = compute_cusum.delay(ticker, lookback_days=lookback_days)
         results.append(result)
     return results

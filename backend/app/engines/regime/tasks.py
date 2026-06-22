@@ -40,9 +40,9 @@ def compute_regime(self, ticker: str = "SPY", n_states: int = 4, lookback_days: 
 
 @shared_task
 def compute_all_regimes(n_states: int = 4, lookback_days: int = 756) -> list[dict]:
-    from app.models.universe import DEFAULT_UNIVERSE
+    from app.models.universe import get_universe
     results = []
-    for ticker in DEFAULT_UNIVERSE:
+    for ticker in get_universe():
         result = compute_regime.delay(ticker, n_states=n_states, lookback_days=lookback_days)
         results.append(result)
     return results

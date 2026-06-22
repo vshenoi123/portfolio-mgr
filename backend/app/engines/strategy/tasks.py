@@ -21,9 +21,9 @@ def compute_strategy(self, ticker: str, signals: dict) -> dict:
 
 @shared_task
 def compute_all_strategies() -> list[dict]:
-    from app.models.universe import DEFAULT_UNIVERSE
+    from app.models.universe import get_universe
     results = []
-    for ticker in DEFAULT_UNIVERSE:
+    for ticker in get_universe():
         signals = {"regime": "Range", "regime_score": 50.0,
             "breakout_score": 50.0, "relative_strength_score": 50.0,
             "cusum_score": 50.0, "volume_score": 50.0, "trend_score": 50.0,

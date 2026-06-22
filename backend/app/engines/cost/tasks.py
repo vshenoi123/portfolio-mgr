@@ -38,9 +38,9 @@ def _load_opportunity_candidates() -> list[dict]:
         except Exception:
             pass
     rng = np.random.default_rng(42)
-    from app.models.universe import DEFAULT_UNIVERSE
+    from app.models.universe import get_universe
     return [{"candidate": t, "score": float(rng.uniform(30, 95)),
              "risk_score": float(rng.uniform(2, 15)),
              "estimated_return_pct": float(rng.uniform(5, 30)),
              "capital_required": float(rng.uniform(5000, 50000))}
-            for t in DEFAULT_UNIVERSE[:10]]
+            for t in get_universe()[:10]]

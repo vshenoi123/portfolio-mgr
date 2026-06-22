@@ -22,8 +22,8 @@ def get_universe(use_api: bool = False):
 
 @router.get("/universe/default")
 def get_default_universe():
-    from app.models.universe import DEFAULT_UNIVERSE
-    return {"tickers": DEFAULT_UNIVERSE, "count": len(DEFAULT_UNIVERSE)}
+    from app.models.universe import get_universe
+    return {"tickers": get_universe(), "count": len(get_universe())}
 
 
 @router.get("/universe/polygon")
@@ -77,9 +77,9 @@ def refresh_all(_=Depends(verify_api_key)):
 
 @router.get("/health")
 def data_health():
-    from app.models.universe import DEFAULT_UNIVERSE
+    from app.models.universe import get_universe
     return DataHealthResponse(
-        tickers_in_universe=len(DEFAULT_UNIVERSE),
+        tickers_in_universe=len(get_universe()),
         total_ohlcv_bars=0,
         last_refresh=None,
         status="healthy",

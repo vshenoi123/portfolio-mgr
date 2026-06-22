@@ -18,17 +18,19 @@ DEFAULT_UNIVERSE = [
     "ARKK", "TLT", "HYG", "GDX", "SLV", "USO",
 ]
 
+_cached_universe: list[str] | None = None
+
 
 def fetch_universe_from_polygon(
     tickers_per_type: int = 1000,
     min_market_cap: float = 1e9,
 ) -> list[str]:
     """Fetch all active stock and ETF tickers from Polygon API."""
+    global _cached_universe
     try:
         client = RESTClient(settings.polygon_api_key)
         tickers = set()
 
-        # Fetch all active stocks, filter by market cap
         stock_resp = client.list_tickers(
             market="stocks",
             type="CS",
@@ -39,7 +41,6 @@ def fetch_universe_from_polygon(
             if hasattr(t, "market_cap") and t.market_cap and t.market_cap >= min_market_cap:
                 tickers.add(t.ticker.upper())
 
-        # Fetch all active ETFs
         etf_resp = client.list_tickers(
             market="stocks",
             type="ETF",
@@ -51,14 +52,18 @@ def fetch_universe_from_polygon(
 
         result = sorted(tickers)
         logger.info("Fetched %d tickers from Polygon API", len(result))
+        _cached_universe = result
         return result
     except Exception as e:
         logger.warning("Failed to fetch from Polygon, using default universe: %s", e)
         return DEFAULT_UNIVERSE
 
 
-def get_universe(use_api: bool = False) -> list[str]:
-    """Get ticker universe. Use API if requested, fallback to default."""
+def get_universe(use_api: bool = True) -> list[str]:
+    """Get ticker universe. Fetches from API (cached) with fallback to default."""
+    global _cached_universe
+    if _cached_universe:
+        return _cached_universe
     if use_api:
         return fetch_universe_from_polygon()
     return DEFAULT_UNIVERSE
