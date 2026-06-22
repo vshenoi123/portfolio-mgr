@@ -1,6 +1,7 @@
 """Live options chain fetcher using Polygon API."""
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, timedelta
 
 from polygon import RESTClient
@@ -8,6 +9,9 @@ from polygon import RESTClient
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+_MAX_SNAPSHOT_WORKERS = 10
+_MAX_CONTRACTS = 30
 
 
 def _get_client() -> RESTClient:
@@ -107,24 +111,37 @@ def fetch_chain_with_snapshots(
     dte_min: int = 20,
     dte_max: int = 45,
 ) -> list[dict]:
-    """Fetch option contracts with live snapshots in batch."""
+    """Fetch option contracts with live snapshots (concurrent, limited)."""
     contracts = fetch_option_chain(ticker, contract_type, dte_min, dte_max)
     if not contracts:
         return []
 
-    result = []
-    for c in contracts:
-        snap = fetch_chain_snapshot(ticker, c["ticker"])
-        if snap:
-            result.append({**c, **snap})
-        else:
-            result.append({**c, "iv": None, "bid": None, "ask": None})
+    # Only scan nearest-to-the-money contracts — target delta (~0.30) is ATM-ish
+    mid = len(contracts) // 2
+    half = _MAX_CONTRACTS // 2
+    start = max(0, mid - half)
+    end = min(len(contracts), mid + half)
+    subset = contracts[start:end]
+    subset_len = len(subset)
 
+    result = [None] * subset_len
+    with ThreadPoolExecutor(max_workers=_MAX_SNAPSHOT_WORKERS) as pool:
+        fut_map = {
+            pool.submit(fetch_chain_snapshot, ticker, c["ticker"]): i
+            for i, c in enumerate(subset)
+        }
+        for fut in as_completed(fut_map):
+            idx = fut_map[fut]
+            snap = fut.result()
+            if snap:
+                result[idx] = {**subset[idx], **snap}
+            else:
+                result[idx] = {**subset[idx], "iv": None, "bid": None, "ask": None}
+
+    result = [r for r in result if r]
     logger.info(
-        "Fetched snapshots for %d/%d contracts for %s",
-        len(result),
-        len(contracts),
-        ticker,
+        "Fetched snapshots for %d/%d contracts (scanned %d) for %s",
+        len(result), len(contracts), subset_len, ticker,
     )
     return result
 

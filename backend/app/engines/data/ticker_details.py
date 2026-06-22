@@ -1,11 +1,9 @@
 import os
 import logging
-from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
 import requests
-from polygon import RESTClient
 
 from app.config import settings
 from app.database import get_data_dir
@@ -82,8 +80,8 @@ def _fetch_live_prices(tickers: list[str]) -> dict[str, float]:
     return prices
 
 
-def _fetch_market_cap(ticker: str) -> tuple[str, float | None]:
-    """Fetch market_cap for a single ticker via REST API."""
+def _fetch_ticker_details(ticker: str) -> tuple[str, dict | None]:
+    """Fetch name, exchange, type, market_cap for a single ticker (1 API call)."""
     try:
         resp = requests.get(
             f"https://api.polygon.io/v3/reference/tickers/{ticker}",
@@ -93,57 +91,45 @@ def _fetch_market_cap(ticker: str) -> tuple[str, float | None]:
         if resp.status_code != 200:
             return ticker, None
         data = resp.json()
-        results = data.get("results", {})
-        mc = results.get("market_cap")
-        return ticker, mc
+        r = data.get("results", {})
+        raw_exchange = r.get("primary_exchange", "")
+        raw_type = r.get("type", "")
+        info = {
+            "ticker": ticker,
+            "name": r.get("name", "") or "",
+            "type": "etf" if raw_type == "ETF" else "stock",
+            "exchange": EXCHANGE_NAMES.get(raw_exchange, raw_exchange),
+            "market_cap": float(r["market_cap"]) if r.get("market_cap") else 0,
+            "active": True,
+        }
+        return ticker, info
     except Exception:
         return ticker, None
 
 
 def refresh_ticker_details() -> int:
-    """Fetch ticker details from Polygon API and cache them (no caps)."""
+    """Fetch all ticker metadata from Polygon via batch get_ticker_details (1 pass)."""
     global _cache
     try:
-        client = RESTClient(settings.polygon_api_key)
+        from app.models.universe import get_universe
+        ticker_list = get_universe()
+        if not ticker_list:
+            logger.warning("Universe is empty, cannot refresh ticker details")
+            return 0
+
         details = {}
-
-        for t in client.list_tickers(market="stocks", type="CS", active=True, limit=1000):
-            raw_exchange = t.primary_exchange or ""
-            details[t.ticker.upper()] = {
-                "ticker": t.ticker.upper(),
-                "name": t.name or "",
-                "type": "stock",
-                "exchange": EXCHANGE_NAMES.get(raw_exchange, raw_exchange),
-                "active": t.active if t.active is not None else True,
-                "market_cap": 0,
-            }
-
-        for t in client.list_tickers(market="stocks", type="ETF", active=True, limit=1000):
-            raw_exchange = t.primary_exchange or ""
-            details[t.ticker.upper()] = {
-                "ticker": t.ticker.upper(),
-                "name": t.name or "",
-                "type": "etf",
-                "exchange": EXCHANGE_NAMES.get(raw_exchange, raw_exchange),
-                "active": t.active if t.active is not None else True,
-                "market_cap": 0,
-            }
-
-        ticker_list = list(details.keys())
-        logger.info("Fetching market_cap for %d tickers", len(ticker_list))
-        with ThreadPoolExecutor(max_workers=10) as pool:
-            fut_map = {pool.submit(_fetch_market_cap, t): t for t in ticker_list}
+        logger.info("Fetching ticker details for %d tickers (1 pass, concurrent)", len(ticker_list))
+        with ThreadPoolExecutor(max_workers=20) as pool:
+            fut_map = {pool.submit(_fetch_ticker_details, t): t for t in ticker_list}
             for fut in as_completed(fut_map):
-                ticker, mc = fut.result()
-                if mc is not None:
-                    details[ticker]["market_cap"] = float(mc)
-
-        filled = sum(1 for d in details.values() if d["market_cap"] > 0)
-        logger.info("Market cap populated: %d/%d tickers", filled, len(details))
+                ticker, info = fut.result()
+                if info:
+                    details[ticker] = info
 
         _cache = details
         _save_cache(details)
-        logger.info("Refreshed ticker details for %d tickers", len(details))
+        filled = sum(1 for d in details.values() if d["market_cap"] > 0)
+        logger.info("Refreshed %d/%d tickers (market_cap: %d populated)", len(details), len(ticker_list), filled)
         return len(details)
     except Exception as e:
         logger.error("Failed to refresh ticker details: %s", e)
