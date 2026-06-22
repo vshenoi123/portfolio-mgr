@@ -12,7 +12,7 @@ else:
     logger.critical("Celery broker URL from env: %s", redis_url)
 
 celery_app = Celery("portfolio_mgr", broker=redis_url, backend=redis_url)
-celery_app.set_as_current()
+celery_app.set_as_current
 
 celery_app.conf.update(
     broker_url=redis_url,
