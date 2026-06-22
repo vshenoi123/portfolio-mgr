@@ -46,7 +46,7 @@ def predict_regime(model: hmm.GaussianHMM, returns: pd.Series) -> RegimePredicti
 
 def full_regime_analysis(returns: pd.Series, n_states: int = 4) -> dict:
     returns = returns.replace([np.inf, -np.inf], np.nan).dropna()
-    if len(returns) < n_states * 10:
+    if len(returns) < max(60, n_states * 15):
         return {
             "overall_regime": RegimePrediction(
                 regime="Range", probability=0.5, confidence=0.5,
@@ -56,8 +56,39 @@ def full_regime_analysis(returns: pd.Series, n_states: int = 4) -> dict:
             "trained_on_bars": 0,
         }
 
-    model, hidden_states = fit_hmm(returns, n_states=n_states)
-    pred = predict_regime(model, returns)
+    if returns.std() < 1e-8:
+        return {
+            "overall_regime": RegimePrediction(
+                regime="Range", probability=0.5, confidence=0.5,
+                explanation="Insufficient variance for regime detection",
+            ),
+            "state_probabilities": {f"state_{i}": 1.0 / n_states for i in range(n_states)},
+            "trained_on_bars": len(returns),
+        }
+
+    try:
+        model, hidden_states = fit_hmm(returns, n_states=n_states)
+    except Exception:
+        return {
+            "overall_regime": RegimePrediction(
+                regime="Range", probability=0.5, confidence=0.5,
+                explanation="HMM fitting failed, defaulting to Range",
+            ),
+            "state_probabilities": {f"state_{i}": 1.0 / n_states for i in range(n_states)},
+            "trained_on_bars": len(returns),
+        }
+
+    try:
+        pred = predict_regime(model, returns)
+    except Exception:
+        return {
+            "overall_regime": RegimePrediction(
+                regime="Range", probability=0.5, confidence=0.5,
+                explanation="Regime prediction failed, defaulting to Range",
+            ),
+            "state_probabilities": {f"state_{i}": 1.0 / n_states for i in range(n_states)},
+            "trained_on_bars": len(returns),
+        }
 
     X = returns.values.reshape(-1, 1)
     state_probs = model.predict_proba(X)
