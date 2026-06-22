@@ -1,7 +1,18 @@
+import os
+import logging
 from celery import Celery
 from app.config import settings
 
-celery_app = Celery("portfolio_mgr", broker=settings.redis_url, backend=settings.redis_url)
+logger = logging.getLogger(__name__)
+
+redis_url = settings.redis_url
+if not redis_url or "localhost" in redis_url:
+    redis_url = os.environ.get("REDIS_URL", "redis://redis:6379/0")
+    logger.warning("Falling back to REDIS_URL env var: %s", redis_url)
+else:
+    logger.info("Celery broker URL: %s", redis_url)
+
+celery_app = Celery("portfolio_mgr", broker=redis_url, backend=redis_url)
 
 celery_app.conf.update(
     task_serializer="json",

@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -6,7 +7,7 @@ class Settings(BaseSettings):
     alpaca_api_key: str = ""
     alpaca_secret_key: str = ""
     alpaca_base_url: str = "https://paper-api.alpaca.markets"
-    redis_url: str = "redis://localhost:6379/0"
+    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
     database_path: str = "/data/portfolio.db"
     data_dir: str = "/data"
     log_level: str = "INFO"
