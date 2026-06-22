@@ -13,7 +13,7 @@ const ACTIONS = [
   { id: 'refresh_ticker_details', label: 'Refresh Ticker Details', desc: 'Update company names, exchange, market cap for all tickers', icon: RefreshCw, endpoint: '/data/ticker-details/refresh', method: 'POST' },
   { id: 'generate_report', label: 'Generate Daily Report', desc: 'Generate AI-powered daily portfolio report', icon: FileText, endpoint: '/ai/report', method: 'GET' },
   { id: 'compute_opportunities', label: 'Scan Opportunities', desc: 'Compute opportunity scores for universe', icon: BarChart3, endpoint: '/opportunities/compute', method: 'POST' },
-  { id: 'run_stress_test', label: 'Run Stress Test', desc: 'Run 5 predefined stress scenarios', icon: AlertTriangle, endpoint: '/risk/stress-test/scenarios', method: 'GET' },
+  { id: 'run_stress_test', label: 'Run Stress Test', desc: 'Run stress scenarios on current portfolio positions', icon: AlertTriangle, endpoint: '/risk/stress-test/run', method: 'GET' },
 ];
 
 const SECTIONS = [
