@@ -10,6 +10,20 @@ from app.database import get_data_dir
 
 logger = logging.getLogger(__name__)
 
+EXCHANGE_NAMES = {
+    "XNAS": "NASDAQ",
+    "XNYS": "NYSE",
+    "ARCX": "NYSE Arca",
+    "BATS": "Cboe BZX",
+    "EDGX": "Cboe EDGX",
+    "EDGA": "Cboe EDGA",
+    "IEX": "IEX",
+    "MEMX": "MEMX",
+    "NYSE": "NYSE",
+    "NASDAQ": "NASDAQ",
+    "OTC": "OTC",
+}
+
 _cache: dict[str, dict] | None = None
 
 
@@ -34,11 +48,12 @@ def refresh_ticker_details() -> int:
         # Fetch stocks
         stock_resp = client.list_tickers(market="stocks", type="CS", active=True, limit=1000)
         for t in stock_resp:
+            raw_exchange = t.primary_exchange or ""
             d = {
                 "ticker": t.ticker.upper(),
                 "name": t.name or "",
                 "type": "stock",
-                "exchange": t.primary_exchange or "",
+                "exchange": EXCHANGE_NAMES.get(raw_exchange, raw_exchange),
                 "active": t.active if t.active is not None else True,
             }
             if hasattr(t, "market_cap") and t.market_cap:
@@ -50,11 +65,12 @@ def refresh_ticker_details() -> int:
         # Fetch ETFs
         etf_resp = client.list_tickers(market="stocks", type="ETF", active=True, limit=500)
         for t in etf_resp:
+            raw_exchange = t.primary_exchange or ""
             details[t.ticker.upper()] = {
                 "ticker": t.ticker.upper(),
                 "name": t.name or "",
                 "type": "etf",
-                "exchange": t.primary_exchange or "",
+                "exchange": EXCHANGE_NAMES.get(raw_exchange, raw_exchange),
                 "market_cap": 0,
                 "active": t.active if t.active is not None else True,
             }
