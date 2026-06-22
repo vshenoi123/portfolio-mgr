@@ -1,10 +1,12 @@
 import os
 import logging
+import shutil
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 
 from celery import shared_task
+from app.database import get_data_dir
 from app.engines.data.service import PolygonDataService, PolygonAPIError
 from app.config import settings
 
@@ -212,6 +214,17 @@ def run_full_refresh_pipeline(self, days: int = 365) -> dict:
             except Exception as e:
                 logger.error("%s failed with exception: %s", name, e)
 
+    logger.info("PIPELINE [7/7] Building consolidated market scan")
+    from app.engines.opportunity.tasks import build_market_scan
+    scan_path = build_market_scan()
+
+    # Clean up individual signal dirs
+    for subdir in ["regime", "breakouts", "cusum", "indicators"]:
+        path = os.path.join(get_data_dir(), "signals", subdir)
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+            logger.info("Cleaned up %s", path)
+
     elapsed = time.time() - start_time
     logger.info("=" * 60)
     logger.info("FULL REFRESH PIPELINE COMPLETE: %.1f seconds", elapsed)
@@ -223,5 +236,6 @@ def run_full_refresh_pipeline(self, days: int = 365) -> dict:
         "status": "success",
         "total_tickers": total,
         "elapsed_seconds": round(elapsed, 1),
-        "pipeline": "OHLCV → ticker_details → [regime, breakouts, CUSUM, features] in parallel",
+        "market_scan": scan_path,
+        "pipeline": "OHLCV → ticker_details → [regime, breakouts, CUSUM, features] → market_scan",
     }

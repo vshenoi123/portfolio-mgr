@@ -15,6 +15,11 @@ class OpportunityScore(BaseModel):
     refined_score: float | None = None
     strategy_type: str = "swing"
     rank: int = 0
+    name: str = ""
+    exchange: str = ""
+    asset_type: str = "stock"
+    market_cap: float = 0.0
+    last_price: float | None = None
     details: dict = {}
 
     @field_validator("total_score", "regime_score", "breakout_score",

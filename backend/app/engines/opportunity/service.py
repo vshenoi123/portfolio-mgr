@@ -85,5 +85,9 @@ def build_opportunity_scores(signals: list[dict], model=None) -> list[Opportunit
             relative_strength_score=rs, cusum_score=cusum,
             volume_score=volume, trend_score=trend,
             refined_score=refined, strategy_type=strategy,
+            name=sig.get("name", ""),
+            exchange=sig.get("exchange", ""),
+            asset_type=sig.get("type", "stock"),
+            market_cap=sig.get("market_cap", 0.0),
         ))
     return scores

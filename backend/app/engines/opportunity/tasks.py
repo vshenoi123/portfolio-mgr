@@ -53,7 +53,8 @@ REGIME_SCORE_MAP = {
 }
 
 
-def _load_todays_signals() -> list[dict]:
+def _merge_signal_dirs() -> list[dict]:
+    """Original 4-dir merge logic — reads signal files per ticker."""
     data_dir = get_data_dir()
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     merged: dict[str, dict] = {}
@@ -146,6 +147,41 @@ def _load_todays_signals() -> list[dict]:
     if not combined:
         combined = _generate_synthetic_signals()
     return combined
+
+
+def _load_todays_signals() -> list[dict]:
+    """Load signals — prefer consolidated market scan, fall back to dir merge."""
+    data_dir = get_data_dir()
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    path = os.path.join(data_dir, "signals", "market_scan", f"{date_str}.parquet")
+    if os.path.exists(path):
+        return pd.read_parquet(path).to_dict(orient="records")
+    return _merge_signal_dirs()
+
+
+def build_market_scan() -> str:
+    """Build consolidated market_scan/{date}.parquet with metadata + all scores."""
+    data_dir = get_data_dir()
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    output_dir = os.path.join(data_dir, "signals", "market_scan")
+    os.makedirs(output_dir, exist_ok=True)
+
+    signals = _merge_signal_dirs()
+    signals_df = pd.DataFrame(signals)
+
+    details_path = os.path.join(data_dir, "cache", "ticker_details.parquet")
+    if os.path.exists(details_path):
+        meta_df = pd.read_parquet(details_path)[["ticker", "name", "exchange", "type", "market_cap"]]
+        signals_df = signals_df.merge(meta_df, on="ticker", how="left")
+        signals_df["name"] = signals_df["name"].fillna("")
+        signals_df["exchange"] = signals_df["exchange"].fillna("")
+        signals_df["type"] = signals_df["type"].fillna("stock")
+        signals_df["market_cap"] = signals_df["market_cap"].fillna(0).astype(float)
+
+    path = os.path.join(output_dir, f"{date_str}.parquet")
+    signals_df.to_parquet(path, index=False)
+    logger.info("Saved market scan: %s (%d rows)", path, len(signals_df))
+    return path
 
 
 def _generate_synthetic_signals() -> list[dict]:

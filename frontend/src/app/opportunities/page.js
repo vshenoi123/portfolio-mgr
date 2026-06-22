@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { Filter, RefreshCw, Zap } from 'lucide-react';
 import StrategyCard from '@/components/shared/StrategyCard';
 import TradeGenerationModal from '@/components/shared/TradeGenerationModal';
-import { useTickerDetails } from '@/hooks/useTickerDetails';
 import { getOpportunities } from '@/lib/api';
 import { getCachedOpportunities, setCachedOpportunities, clearOpportunitiesCache } from '@/lib/opportunitiesCache';
 
@@ -64,9 +63,6 @@ export default function OpportunitiesPage() {
   const [opps, setOpps] = useState([]);
   const [tradeTicker, setTradeTicker] = useState(null);
 
-  const tickers = opps.map((o) => o.ticker);
-  const { details } = useTickerDetails(tickers);
-
   const fetchData = async (strategyType = 'all', forceRefresh = false) => {
     const cached = getCachedOpportunities(strategyType);
     if (cached && !forceRefresh) {
@@ -96,13 +92,13 @@ export default function OpportunitiesPage() {
   };
 
   const filteredOpps = opps.filter((opp) => {
-    if (assetFilter === 'etfs') return (details[opp.ticker] || {}).type === 'etf';
-    if (assetFilter === 'stocks') return (details[opp.ticker] || {}).type !== 'etf';
+    if (assetFilter === 'etfs') return opp.asset_type === 'etf';
+    if (assetFilter === 'stocks') return opp.asset_type !== 'etf';
     return true;
   });
 
-  const stockCount = opps.filter((o) => (details[o.ticker] || {}).type !== 'etf').length;
-  const etfCount = opps.filter((o) => (details[o.ticker] || {}).type === 'etf').length;
+  const stockCount = opps.filter((o) => o.asset_type !== 'etf').length;
+  const etfCount = opps.filter((o) => o.asset_type === 'etf').length;
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -170,19 +166,18 @@ export default function OpportunitiesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filteredOpps.map((opp, i) => {
-            const info = details[opp.ticker] || {};
             const detailTags = [
-              info.last_price ? `$${info.last_price.toFixed(2)}` : null,
-              info.exchange,
-              info.type === 'etf' ? 'ETF' : null,
-              formatMarketCap(info.market_cap),
+              opp.last_price ? `$${opp.last_price.toFixed(2)}` : null,
+              opp.exchange,
+              opp.asset_type === 'etf' ? 'ETF' : null,
+              formatMarketCap(opp.market_cap),
             ].filter(Boolean);
 
             return (
               <div key={opp.ticker + i} className="relative">
                 <StrategyCard
                   title={opp.ticker}
-                  subtitle={info.name || ''}
+                  subtitle={opp.name || ''}
                   details={detailTags}
                   score={opp.total_score}
                   strategy={opp.strategy_type}
