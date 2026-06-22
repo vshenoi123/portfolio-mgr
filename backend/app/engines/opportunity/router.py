@@ -29,7 +29,7 @@ def _enrich_with_prices(scores: list[OpportunityScore]) -> None:
 
 
 def _respond(scores: list[OpportunityScore], asset_type: str, top_n: int,
-             min_market_cap: float = 100_000_000) -> OpportunityResponse:
+             min_market_cap: float = 2_000_000_000) -> OpportunityResponse:
     if asset_type == "etfs":
         scores = [s for s in scores if s.asset_type == "etf"]
     else:
@@ -48,7 +48,7 @@ def _respond(scores: list[OpportunityScore], asset_type: str, top_n: int,
 
 @router.get("")
 def get_opportunities(strategy_type: str = "all", top_n: int = 20, min_score: float = 10.0,
-                      asset_type: str = "stocks", min_market_cap: float = 100_000_000):
+                      asset_type: str = "stocks", min_market_cap: float = 2_000_000_000):
     logger.info("Fetching opportunities: strategy=%s top_n=%d min_score=%.1f asset=%s",
                 strategy_type, top_n, min_score, asset_type)
     try:
@@ -77,7 +77,7 @@ def get_opportunities(strategy_type: str = "all", top_n: int = 20, min_score: fl
 
 @router.get("/{strategy_type}")
 def get_opportunities_by_strategy(strategy_type: str, top_n: int = 20, asset_type: str = "stocks",
-                                  min_score: float = 10.0, min_market_cap: float = 100_000_000):
+                                  min_score: float = 10.0, min_market_cap: float = 2_000_000_000):
     try:
         signals = _load_todays_signals()
         scores = build_opportunity_scores(signals)
