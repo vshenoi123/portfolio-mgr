@@ -1,17 +1,15 @@
 import os
 import logging
 from celery import Celery
-from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-redis_url = settings.redis_url
-env_url = os.environ.get("REDIS_URL", "NOT SET")
-logger.critical("CELERY DEBUG: settings.redis_url=%s, env REDIS_URL=%s", redis_url, env_url)
-
-if not redis_url or "localhost" in redis_url:
-    redis_url = env_url if env_url != "NOT SET" else "redis://redis:6379/0"
-    logger.critical("CELERY DEBUG: fell back to %s", redis_url)
+redis_url = os.environ.get("REDIS_URL", "")
+if not redis_url:
+    redis_url = "redis://redis:6379/0"
+    logger.critical("REDIS_URL env var not set, using default: %s", redis_url)
+else:
+    logger.critical("Celery broker URL from env: %s", redis_url)
 
 celery_app = Celery("portfolio_mgr", broker=redis_url, backend=redis_url)
 
