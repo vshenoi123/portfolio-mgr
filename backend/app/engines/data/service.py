@@ -8,6 +8,7 @@ from polygon import RESTClient
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+logging.getLogger("urllib3").setLevel(logging.ERROR)
 
 
 class PolygonAPIError(Exception):
