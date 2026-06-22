@@ -27,12 +27,9 @@ def get_default_universe():
 
 
 @router.get("/universe/polygon")
-def get_polygon_universe(tickers_per_type: int = 100, min_market_cap: float = 1e9):
+def get_polygon_universe(tickers_per_type: int = 100):
     from app.models.universe import fetch_universe_from_polygon
-    tickers = fetch_universe_from_polygon(
-        tickers_per_type=tickers_per_type,
-        min_market_cap=min_market_cap,
-    )
+    tickers = fetch_universe_from_polygon(tickers_per_type=tickers_per_type)
     return {"tickers": tickers, "count": len(tickers)}
 
 

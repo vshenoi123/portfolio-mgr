@@ -1,4 +1,5 @@
 import logging
+from itertools import islice
 from pydantic import BaseModel, field_validator
 from polygon import RESTClient
 
@@ -23,7 +24,6 @@ _cached_universe: list[str] | None = None
 
 def fetch_universe_from_polygon(
     tickers_per_type: int = 1000,
-    min_market_cap: float = 1e9,
 ) -> list[str]:
     """Fetch all active stock and ETF tickers from Polygon API."""
     global _cached_universe
@@ -37,9 +37,8 @@ def fetch_universe_from_polygon(
             active=True,
             limit=tickers_per_type,
         )
-        for t in stock_resp:
-            if hasattr(t, "market_cap") and t.market_cap and t.market_cap >= min_market_cap:
-                tickers.add(t.ticker.upper())
+        for t in islice(stock_resp, tickers_per_type):
+            tickers.add(t.ticker.upper())
 
         etf_resp = client.list_tickers(
             market="stocks",
@@ -47,7 +46,7 @@ def fetch_universe_from_polygon(
             active=True,
             limit=500,
         )
-        for t in etf_resp:
+        for t in islice(etf_resp, 500):
             tickers.add(t.ticker.upper())
 
         result = sorted(tickers)
