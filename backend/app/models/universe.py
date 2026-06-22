@@ -28,13 +28,13 @@ def fetch_universe_from_polygon(
         client = RESTClient(settings.polygon_api_key)
         tickers = set()
 
-        # Fetch active stocks
+        # Fetch active stocks — sort by volume (valid sort field), filter by market cap
         stock_resp = client.list_tickers(
             market="stocks",
             type="CS",
             active=True,
             limit=tickers_per_type,
-            sort="market_cap",
+            sort="volume",
             order="desc",
         )
         for t in stock_resp:
