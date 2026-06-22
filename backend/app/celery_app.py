@@ -76,10 +76,9 @@ celery_app.conf.update(
             "task": "app.engines.features.tasks.compute_all_features",
             "schedule": 86400.0,
         },
-        "compute-regime-daily": {
-            "task": "app.engines.regime.tasks.compute_regime",
+        "compute-all-regimes-daily": {
+            "task": "app.engines.regime.tasks.compute_all_regimes",
             "schedule": 86400.0,
-            "kwargs": {"ticker": "SPY", "n_states": 4},
         },
         "compute-all-cusum-daily": {
             "task": "app.engines.cusum.tasks.compute_all_cusum",

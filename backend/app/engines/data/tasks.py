@@ -147,3 +147,82 @@ def refresh_ticker_details_task() -> dict:
     from app.engines.data.ticker_details import refresh_ticker_details
     count = refresh_ticker_details()
     return {"status": "success", "count": count}
+
+
+@shared_task(bind=True, max_retries=1, default_retry_delay=60)
+def run_full_refresh_pipeline(self, days: int = 365) -> dict:
+    """Orchestrator: refresh OHLCV → ticker details → all signal types, sequentially."""
+    from app.models.universe import get_universe
+    from app.engines.regime.tasks import compute_regime
+    from app.engines.breakout.tasks import compute_breakouts
+    from app.engines.cusum.tasks import compute_cusum
+    from app.engines.features.tasks import compute_features
+
+    tickers = get_universe(use_api=True)
+    total = len(tickers)
+    start_time = time.time()
+    logger.info("=" * 60)
+    logger.info("FULL REFRESH PIPELINE START: %d tickers", total)
+    logger.info("=" * 60)
+
+    logger.info("PIPELINE [1/6] Refreshing OHLCV data")
+    refresh_all_data(days=days)
+
+    logger.info("PIPELINE [2/6] Refreshing ticker details")
+    refresh_ticker_details_task()
+
+    logger.info("PIPELINE [3/6] Computing regimes (%d tickers)", total)
+    for i, ticker in enumerate(tickers):
+        try:
+            compute_regime(ticker=ticker)
+        except Exception as e:
+            logger.warning("Regime failed for %s: %s", ticker, e)
+        if (i + 1) % 50 == 0:
+            elapsed = time.time() - start_time
+            logger.info("Regime progress: %d/%d (%.1f%%) — %.0fs elapsed",
+                        i + 1, total, (i + 1) / total * 100, elapsed)
+
+    logger.info("PIPELINE [4/6] Computing breakouts (%d tickers)", total)
+    for i, ticker in enumerate(tickers):
+        try:
+            compute_breakouts(ticker=ticker)
+        except Exception as e:
+            logger.warning("Breakouts failed for %s: %s", ticker, e)
+        if (i + 1) % 50 == 0:
+            elapsed = time.time() - start_time
+            logger.info("Breakout progress: %d/%d (%.1f%%) — %.0fs elapsed",
+                        i + 1, total, (i + 1) / total * 100, elapsed)
+
+    logger.info("PIPELINE [5/6] Computing CUSUM (%d tickers)", total)
+    for i, ticker in enumerate(tickers):
+        try:
+            compute_cusum(ticker=ticker)
+        except Exception as e:
+            logger.warning("CUSUM failed for %s: %s", ticker, e)
+        if (i + 1) % 50 == 0:
+            elapsed = time.time() - start_time
+            logger.info("CUSUM progress: %d/%d (%.1f%%) — %.0fs elapsed",
+                        i + 1, total, (i + 1) / total * 100, elapsed)
+
+    logger.info("PIPELINE [6/6] Computing features (%d tickers)", total)
+    for i, ticker in enumerate(tickers):
+        try:
+            compute_features(ticker=ticker)
+        except Exception as e:
+            logger.warning("Features failed for %s: %s", ticker, e)
+        if (i + 1) % 50 == 0:
+            elapsed = time.time() - start_time
+            logger.info("Features progress: %d/%d (%.1f%%) — %.0fs elapsed",
+                        i + 1, total, (i + 1) / total * 100, elapsed)
+
+    elapsed = time.time() - start_time
+    logger.info("=" * 60)
+    logger.info("FULL REFRESH PIPELINE COMPLETE: %.1f seconds", elapsed)
+    logger.info("=" * 60)
+
+    return {
+        "status": "success",
+        "total_tickers": total,
+        "elapsed_seconds": round(elapsed, 1),
+        "pipeline": "OHLCV → ticker_details → regime → breakouts → CUSUM → features",
+    }

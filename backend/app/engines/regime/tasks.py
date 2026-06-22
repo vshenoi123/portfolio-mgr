@@ -61,6 +61,6 @@ def _save_regime(ticker: str, analysis: dict) -> str:
         **analysis["state_probabilities"],
         "trained_on_bars": analysis["trained_on_bars"],
     }
-    path = os.path.join(signals_dir, f"{date_str}.parquet")
+    path = os.path.join(signals_dir, f"{ticker.lower()}_{date_str}.parquet")
     pd.DataFrame([row]).to_parquet(path, index=False)
     return path

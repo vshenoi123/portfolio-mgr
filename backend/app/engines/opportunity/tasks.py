@@ -45,26 +45,102 @@ def compute_opportunities(self) -> dict:
         return {"status": "error", "message": str(e)}
 
 
+REGIME_SCORE_MAP = {
+    "Bull": 85, "Bull High Vol": 65,
+    "Range": 50,
+    "Bear": 30, "Bear High Vol": 20,
+    "Crisis": 10,
+}
+
+
 def _load_todays_signals() -> list[dict]:
     data_dir = get_data_dir()
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    combined = []
-    for st in ["regime", "breakouts", "cusum", "indicators"]:
-        signals_dir = os.path.join(data_dir, "signals", st)
-        if not os.path.isdir(signals_dir):
-            continue
-        batch_path = os.path.join(signals_dir, f"{date_str}.parquet")
-        if os.path.exists(batch_path):
-            try:
-                combined.extend(pd.read_parquet(batch_path).to_dict(orient="records"))
-            except Exception:
-                pass
+    merged: dict[str, dict] = {}
+
+    # Load regimes — convert regime name + probability to regime_score
+    signals_dir = os.path.join(data_dir, "signals", "regime")
+    if os.path.isdir(signals_dir):
         for f in os.listdir(signals_dir):
-            if f.endswith(f"_{date_str}.parquet") and f != f"{date_str}.parquet":
-                try:
-                    combined.extend(pd.read_parquet(os.path.join(signals_dir, f)).to_dict(orient="records"))
-                except Exception:
-                    pass
+            if not f.endswith(f"_{date_str}.parquet"):
+                continue
+            try:
+                records = pd.read_parquet(os.path.join(signals_dir, f)).to_dict(orient="records")
+            except Exception:
+                continue
+            for rec in records:
+                ticker = rec.get("ticker", "")
+                if not ticker:
+                    continue
+                if ticker not in merged:
+                    merged[ticker] = {"ticker": ticker}
+                regime_name = rec.get("regime", "Range")
+                prob = rec.get("probability", 0.5)
+                merged[ticker]["regime_score"] = REGIME_SCORE_MAP.get(regime_name, 50) * prob
+
+    # Load breakouts — use max strength across all signals
+    signals_dir = os.path.join(data_dir, "signals", "breakouts")
+    if os.path.isdir(signals_dir):
+        for f in os.listdir(signals_dir):
+            if not f.endswith(f"_{date_str}.parquet"):
+                continue
+            try:
+                records = pd.read_parquet(os.path.join(signals_dir, f)).to_dict(orient="records")
+            except Exception:
+                continue
+            for rec in records:
+                ticker = rec.get("ticker", "")
+                if not ticker:
+                    continue
+                if ticker not in merged:
+                    merged[ticker] = {"ticker": ticker}
+                strength = rec.get("strength", 0)
+                current = merged[ticker].get("breakout_score", 0)
+                merged[ticker]["breakout_score"] = max(current, strength * 100)
+
+    # Load CUSUM — use change_probability as cusum_score
+    signals_dir = os.path.join(data_dir, "signals", "cusum")
+    if os.path.isdir(signals_dir):
+        for f in os.listdir(signals_dir):
+            if not f.endswith(f"_{date_str}.parquet"):
+                continue
+            try:
+                records = pd.read_parquet(os.path.join(signals_dir, f)).to_dict(orient="records")
+            except Exception:
+                continue
+            for rec in records:
+                ticker = rec.get("ticker", "")
+                if not ticker:
+                    continue
+                if ticker not in merged:
+                    merged[ticker] = {"ticker": ticker}
+                merged[ticker]["cusum_score"] = rec.get("change_probability", 0) * 100
+
+    # Load indicators (features) — flatten nested dicts
+    signals_dir = os.path.join(data_dir, "signals", "indicators")
+    if os.path.isdir(signals_dir):
+        for f in os.listdir(signals_dir):
+            if not f.endswith(f"_{date_str}.parquet"):
+                continue
+            try:
+                records = pd.read_parquet(os.path.join(signals_dir, f)).to_dict(orient="records")
+            except Exception:
+                continue
+            for rec in records:
+                ticker = rec.get("ticker", "")
+                if not ticker:
+                    continue
+                if ticker not in merged:
+                    merged[ticker] = {"ticker": ticker}
+                market_rel = rec.get("market_relative", {})
+                volume = rec.get("volume", {})
+                trend = rec.get("trend", {})
+                momentum = rec.get("momentum", {})
+                merged[ticker]["relative_strength_score"] = market_rel.get("relative_strength", 0.5) * 100
+                merged[ticker]["volume_score"] = min(100, volume.get("obv", 0) * 100)
+                merged[ticker]["trend_score"] = trend.get("adx", 50)
+
+    combined = list(merged.values())
     if not combined:
         combined = _generate_synthetic_signals()
     return combined
@@ -74,14 +150,13 @@ def _generate_synthetic_signals() -> list[dict]:
     import numpy as np
     from app.models.universe import get_universe
     rng = np.random.default_rng(42)
-    # Use default universe to avoid Polygon API dependency for fallback data
     return [{"ticker": t, "regime_score": float(rng.uniform(20, 95)),
         "breakout_score": float(rng.uniform(10, 90)),
         "relative_strength_score": float(rng.uniform(15, 95)),
         "cusum_score": float(rng.uniform(10, 80)),
         "volume_score": float(rng.uniform(20, 85)),
         "trend_score": float(rng.uniform(25, 90))}
-        for t in get_universe(use_api=False)]
+        for t in get_universe(use_api=True)]
 
 
 def _save_opportunities(scores: list) -> str:

@@ -10,7 +10,7 @@ const ACTIONS = [
   { id: 'sync_positions', label: 'Sync Alpaca Positions', desc: 'Pull latest positions from Alpaca paper account', icon: RotateCcw, endpoint: '/trading/sync', method: 'POST' },
   { id: 'refresh_all', label: 'Refresh Market Data', desc: 'Fetch latest OHLCV from Polygon for all tickers', icon: RefreshCw, endpoint: '/data/refresh-all', method: 'POST' },
   { id: 'refresh_spy', label: 'Refresh SPY Data', desc: 'Fetch latest SPY OHLCV from Polygon', icon: RefreshCw, endpoint: '/data/refresh/SPY?days=365', method: 'POST' },
-  { id: 'refresh_ticker_details', label: 'Refresh Ticker Details', desc: 'Update company names, exchange, market cap for all tickers', icon: RefreshCw, endpoint: '/data/ticker-details/refresh', method: 'POST' },
+
   { id: 'generate_report', label: 'Generate Daily Report', desc: 'Generate AI-powered daily portfolio report', icon: FileText, endpoint: '/ai/report', method: 'GET' },
   { id: 'compute_opportunities', label: 'Scan Opportunities', desc: 'Compute opportunity scores for universe', icon: BarChart3, endpoint: '/opportunities/compute', method: 'POST' },
   { id: 'run_stress_test', label: 'Run Stress Test', desc: 'Run stress scenarios on current portfolio positions', icon: AlertTriangle, endpoint: '/risk/stress-test/run', method: 'GET' },

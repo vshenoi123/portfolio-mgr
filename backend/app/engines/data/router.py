@@ -64,13 +64,13 @@ def refresh_ticker(
 
 @router.post("/refresh-all", status_code=202)
 def refresh_all(_=Depends(verify_api_key)):
-    from app.engines.data.tasks import refresh_all_data
+    from app.engines.data.tasks import run_full_refresh_pipeline
     from app.core.celery_helpers import dispatch_task
     from app.models.universe import get_universe
     tickers = get_universe(use_api=True)
-    logger.info("Refreshing ALL %d tickers (live from Polygon)", len(tickers))
-    result = dispatch_task(refresh_all_data)
-    result["message"] = "Refreshing all tickers"
+    logger.info("Running full refresh pipeline for %d tickers (live from Polygon)", len(tickers))
+    result = dispatch_task(run_full_refresh_pipeline)
+    result["message"] = "Full refresh pipeline started: OHLCV → ticker_details → regime → breakouts → CUSUM → features"
     result["tickers"] = tickers
     return result
 
