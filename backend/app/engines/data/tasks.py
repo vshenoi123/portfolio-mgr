@@ -149,9 +149,28 @@ def refresh_ticker_details_task() -> dict:
     return {"status": "success", "count": count}
 
 
+def _compute_signal_for_all(signal_fn, tickers: list[str], signal_name: str, start_time: float) -> tuple[str, int, int]:
+    """Run a signal computation for all tickers. Returns (name, success_count, error_count)."""
+    success = 0
+    errors = 0
+    total = len(tickers)
+    for i, ticker in enumerate(tickers):
+        try:
+            signal_fn(ticker=ticker)
+            success += 1
+        except Exception as e:
+            errors += 1
+            logger.warning("%s failed for %s: %s", signal_name, ticker, e)
+        if (i + 1) % 50 == 0:
+            elapsed = time.time() - start_time
+            logger.info("%s progress: %d/%d (%d ok, %d err) — %.0fs elapsed",
+                        signal_name, i + 1, total, success, errors, elapsed)
+    return signal_name, success, errors
+
+
 @shared_task(bind=True, max_retries=1, default_retry_delay=60)
 def run_full_refresh_pipeline(self, days: int = 365) -> dict:
-    """Orchestrator: refresh OHLCV → ticker details → all signal types, sequentially."""
+    """Orchestrator: OHLCV + ticker_details sequentially, then 4 signal types in parallel."""
     from app.models.universe import get_universe
     from app.engines.regime.tasks import compute_regime
     from app.engines.breakout.tasks import compute_breakouts
@@ -171,58 +190,38 @@ def run_full_refresh_pipeline(self, days: int = 365) -> dict:
     logger.info("PIPELINE [2/6] Refreshing ticker details")
     refresh_ticker_details_task()
 
-    logger.info("PIPELINE [3/6] Computing regimes (%d tickers)", total)
-    for i, ticker in enumerate(tickers):
-        try:
-            compute_regime(ticker=ticker)
-        except Exception as e:
-            logger.warning("Regime failed for %s: %s", ticker, e)
-        if (i + 1) % 50 == 0:
-            elapsed = time.time() - start_time
-            logger.info("Regime progress: %d/%d (%.1f%%) — %.0fs elapsed",
-                        i + 1, total, (i + 1) / total * 100, elapsed)
-
-    logger.info("PIPELINE [4/6] Computing breakouts (%d tickers)", total)
-    for i, ticker in enumerate(tickers):
-        try:
-            compute_breakouts(ticker=ticker)
-        except Exception as e:
-            logger.warning("Breakouts failed for %s: %s", ticker, e)
-        if (i + 1) % 50 == 0:
-            elapsed = time.time() - start_time
-            logger.info("Breakout progress: %d/%d (%.1f%%) — %.0fs elapsed",
-                        i + 1, total, (i + 1) / total * 100, elapsed)
-
-    logger.info("PIPELINE [5/6] Computing CUSUM (%d tickers)", total)
-    for i, ticker in enumerate(tickers):
-        try:
-            compute_cusum(ticker=ticker)
-        except Exception as e:
-            logger.warning("CUSUM failed for %s: %s", ticker, e)
-        if (i + 1) % 50 == 0:
-            elapsed = time.time() - start_time
-            logger.info("CUSUM progress: %d/%d (%.1f%%) — %.0fs elapsed",
-                        i + 1, total, (i + 1) / total * 100, elapsed)
-
-    logger.info("PIPELINE [6/6] Computing features (%d tickers)", total)
-    for i, ticker in enumerate(tickers):
-        try:
-            compute_features(ticker=ticker)
-        except Exception as e:
-            logger.warning("Features failed for %s: %s", ticker, e)
-        if (i + 1) % 50 == 0:
-            elapsed = time.time() - start_time
-            logger.info("Features progress: %d/%d (%.1f%%) — %.0fs elapsed",
-                        i + 1, total, (i + 1) / total * 100, elapsed)
+    logger.info("PIPELINE [3/6-6/6] Computing all signals (parallel) — %d tickers × 4 types", total)
+    signal_tasks = [
+        (compute_regime, tickers, "Regime"),
+        (compute_breakouts, tickers, "Breakout"),
+        (compute_cusum, tickers, "CUSUM"),
+        (compute_features, tickers, "Features"),
+    ]
+    results = []
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {
+            pool.submit(_compute_signal_for_all, fn, tickers, name, start_time): name
+            for fn, tickers, name in signal_tasks
+        }
+        for future in as_completed(futures):
+            name = futures[future]
+            try:
+                result = future.result()
+                results.append(result)
+                logger.info("%s complete: %d ok, %d err", result[0], result[1], result[2])
+            except Exception as e:
+                logger.error("%s failed with exception: %s", name, e)
 
     elapsed = time.time() - start_time
     logger.info("=" * 60)
     logger.info("FULL REFRESH PIPELINE COMPLETE: %.1f seconds", elapsed)
+    for name, ok, err in results:
+        logger.info("  %s: %d ok, %d err", name, ok, err)
     logger.info("=" * 60)
 
     return {
         "status": "success",
         "total_tickers": total,
         "elapsed_seconds": round(elapsed, 1),
-        "pipeline": "OHLCV → ticker_details → regime → breakouts → CUSUM → features",
+        "pipeline": "OHLCV → ticker_details → [regime, breakouts, CUSUM, features] in parallel",
     }
