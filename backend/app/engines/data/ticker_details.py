@@ -28,7 +28,7 @@ _cache: dict[str, dict] | None = None
 
 
 def get_ticker_details(tickers: list[str] | None = None) -> dict[str, dict]:
-    """Get ticker details (name, type, exchange, market_cap, last_price) from cache."""
+    """Get ticker details with live prices from Polygon snapshots."""
     global _cache
     if _cache is None:
         _cache = _load_cache()
@@ -36,30 +36,37 @@ def get_ticker_details(tickers: list[str] | None = None) -> dict[str, dict]:
     result = {}
     for t in (tickers or []):
         info = dict(_cache.get(t, {}))
-        if "last_price" not in info or info["last_price"] is None:
-            info["last_price"] = _get_last_price(t)
         result[t] = info
+
+    # Fetch live prices from Polygon snapshots
+    if tickers:
+        live_prices = _fetch_live_prices(tickers)
+        for t in tickers:
+            if t in live_prices:
+                result[t]["last_price"] = live_prices[t]
+
     if not tickers:
         return _cache
     return result
 
 
-def _get_last_price(ticker: str) -> float | None:
-    """Read last close price from stored OHLCV Parquet."""
-    from app.database import get_data_dir
-    parquet_path = os.path.join(get_data_dir(), "ohlcv", ticker.lower()[:1], f"{ticker.lower()}.parquet")
-    if not os.path.exists(parquet_path):
-        # Try flat structure
-        parquet_path = os.path.join(get_data_dir(), "ohlcv", f"{ticker.lower()}.parquet")
-    if not os.path.exists(parquet_path):
-        return None
+def _fetch_live_prices(tickers: list[str]) -> dict[str, float]:
+    """Fetch latest prices from Polygon snapshot API."""
+    prices = {}
     try:
-        df = pd.read_parquet(parquet_path)
-        if df.empty or "close" not in df.columns:
-            return None
-        return float(df["close"].iloc[-1])
-    except Exception:
-        return None
+        client = RESTClient(settings.polygon_api_key)
+        for ticker in tickers:
+            try:
+                snap = client.get_snapshot_ticker("stocks", ticker)
+                if snap and snap.last_trade and snap.last_trade.price:
+                    prices[ticker.upper()] = snap.last_trade.price
+                elif snap and snap.day and snap.day.close:
+                    prices[ticker.upper()] = snap.day.close
+            except Exception:
+                pass
+    except Exception as e:
+        logger.warning("Failed to fetch live prices: %s", e)
+    return prices
 
 
 def refresh_ticker_details() -> int:
