@@ -133,7 +133,7 @@ def generate_trade(ticker: str, dte: int = 30, target_delta: float = 0.30) -> di
         dte_min = max(7, dte - 10)
         dte_max = dte + 10
 
-        live_contracts = fetch_chain_with_snapshots(ticker, contract_type, dte_min, dte_max)
+        live_contracts = fetch_chain_with_snapshots(ticker, contract_type, dte_min, dte_max, underlying_price=underlying_price)
         nearest = find_nearest_contract(live_contracts, target_delta) if live_contracts else None
 
         if not nearest or nearest.get("bid") is None:
