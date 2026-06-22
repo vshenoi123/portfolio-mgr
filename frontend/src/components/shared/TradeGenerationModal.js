@@ -20,6 +20,7 @@ export default function TradeGenerationModal({ ticker, onClose }) {
   const [context, setContext] = useState(null);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
+  const [liveData, setLiveData] = useState(false);
 
   const fetchTrade = async () => {
     setLoading(true);
@@ -27,11 +28,13 @@ export default function TradeGenerationModal({ ticker, onClose }) {
     setTrade(null);
     setStrategy(null);
     setContext(null);
+    setLiveData(false);
     try {
       const data = await generateTrade(ticker, dte, targetDelta);
       setTrade(data.trade);
       setStrategy(data.strategy_output);
       setContext(data.context);
+      setLiveData(data.live_data || false);
       if (!data.trade) {
         setError(data.message || 'No trade generated for this recommendation');
       }
@@ -75,6 +78,16 @@ export default function TradeGenerationModal({ ticker, onClose }) {
                 <span className="text-xs font-mono text-terminal-text-muted">
                   {Math.round(confidence * 100)}% confidence
                 </span>
+                {liveData && (
+                  <span className="px-2 py-0.5 text-xs font-mono rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    LIVE DATA
+                  </span>
+                )}
+                {!liveData && trade && (
+                  <span className="px-2 py-0.5 text-xs font-mono rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
+                    CALCULATED
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -219,6 +232,51 @@ export default function TradeGenerationModal({ ticker, onClose }) {
                 </div>
               )}
             </div>
+
+            {/* Live Market Data */}
+            {trade && (trade.bid != null || trade.open_interest != null) && (
+              <div className="mt-4 p-3 rounded-lg bg-terminal-bg-light">
+                <p className="text-xs font-mono text-terminal-text-muted mb-2">Market Data</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono">
+                  {trade.bid != null && (
+                    <div>
+                      <p className="text-terminal-text-muted">Bid</p>
+                      <p className="text-terminal-text">{formatCurrency(trade.bid)}</p>
+                    </div>
+                  )}
+                  {trade.ask != null && (
+                    <div>
+                      <p className="text-terminal-text-muted">Ask</p>
+                      <p className="text-terminal-text">{formatCurrency(trade.ask)}</p>
+                    </div>
+                  )}
+                  {trade.bid != null && trade.ask != null && (
+                    <div>
+                      <p className="text-terminal-text-muted">Spread</p>
+                      <p className="text-terminal-text">{formatCurrency(trade.ask - trade.bid)}</p>
+                    </div>
+                  )}
+                  {trade.open_interest != null && trade.open_interest > 0 && (
+                    <div>
+                      <p className="text-terminal-text-muted">Open Interest</p>
+                      <p className="text-terminal-text">{trade.open_interest.toLocaleString()}</p>
+                    </div>
+                  )}
+                  {trade.volume != null && trade.volume > 0 && (
+                    <div>
+                      <p className="text-terminal-text-muted">Volume</p>
+                      <p className="text-terminal-text">{trade.volume.toLocaleString()}</p>
+                    </div>
+                  )}
+                  {trade.implied_volatility != null && (
+                    <div>
+                      <p className="text-terminal-text-muted">IV</p>
+                      <p className="text-terminal-text">{(trade.implied_volatility * 100).toFixed(1)}%</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Context */}
             {context && (
