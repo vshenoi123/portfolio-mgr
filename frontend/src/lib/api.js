@@ -11,7 +11,25 @@ async function fetchApi(endpoint, options = {}) {
 }
 
 export function getPortfolioSummary() { return fetchApi('/portfolio'); }
+export function getPortfolioHoldings() { return fetchApi('/portfolio/holdings'); }
 export function getPortfolioHealth() { return fetchApi('/portfolio/health'); }
-export function getOpportunities() { return fetchApi('/opportunities'); }
+export function getPortfolioExposure() { return fetchApi('/portfolio/exposure'); }
+export function getPortfolioAllocation() { return fetchApi('/portfolio/allocation'); }
+
+export function getOpportunities(strategyType = 'all', topN = 20) {
+  const params = new URLSearchParams({ strategy_type: strategyType, top_n: topN });
+  return fetchApi(`/opportunities?${params}`);
+}
+
 export function getMonitoringSummary() { return fetchApi('/monitoring/summary'); }
+export function getMonitoringHealth() { return fetchApi('/monitoring/health'); }
+export function getMonitoringAlerts() { return fetchApi('/monitoring/alerts'); }
+
+export function getRegime() { return fetchApi('/analysis/regime'); }
+
+export function getDailyReport() { return fetchApi('/ai/report'); }
+
 export function getPositions() { return fetchApi('/trading/positions'); }
+export function syncPositions() { return fetchApi('/trading/sync', { method: 'POST' }); }
+
+export function triggerAction(endpoint, options = {}) { return fetchApi(endpoint, options); }

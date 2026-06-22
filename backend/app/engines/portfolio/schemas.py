@@ -23,10 +23,13 @@ class PortfolioPosition(BaseModel):
 
     def __init__(self, **data):
         super().__init__(**data)
-        self.market_value = round(self.quantity * self.current_price, 2)
-        self.cost_basis = round(self.quantity * self.avg_price, 2)
-        self.unrealized_pl = round(self.market_value - self.cost_basis, 2)
-        if self.cost_basis > 0:
+        if self.market_value == 0.0:
+            self.market_value = round(self.quantity * self.current_price, 2)
+        if self.cost_basis == 0.0:
+            self.cost_basis = round(self.quantity * self.avg_price, 2)
+        if self.unrealized_pl == 0.0:
+            self.unrealized_pl = round(self.market_value - self.cost_basis, 2)
+        if self.unrealized_pl_pct == 0.0 and self.cost_basis > 0:
             self.unrealized_pl_pct = round((self.unrealized_pl / self.cost_basis) * 100, 2)
 
 

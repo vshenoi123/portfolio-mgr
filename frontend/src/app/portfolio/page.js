@@ -6,46 +6,32 @@ import DataTable from '@/components/shared/DataTable';
 import PctChange from '@/components/shared/PctChange';
 import StrategyCard from '@/components/shared/StrategyCard';
 import { formatCurrency, formatNumber } from '@/lib/utils';
-
-const DEMO_PORTFOLIO_SUMMARY = {
-  total_value: 245000,
-  total_cost: 160000,
-  total_pnl: 85000,
-  total_pnl_pct: 53.1,
-  cash: 85000,
-  invested: 160000,
-  allocation: { equities: 65, options: 10, bonds: 5, cash: 20 },
-};
-
-const DEMO_HOLDINGS = [
-  { id: 1, ticker: 'NVDA', type: 'Stock', shares: 100, avg_price: 95.50, current: 142.30, market_value: 14230, pnl: 4680, pnl_pct: 49.0, allocation: 8.9 },
-  { id: 2, ticker: 'NVDA250620C145', type: 'Call', shares: 3, avg_price: 3.20, current: 4.85, market_value: 1455, pnl: 495, pnl_pct: 51.6, allocation: 0.9 },
-  { id: 3, ticker: 'AMD', type: 'Stock', shares: 200, avg_price: 110.00, current: 158.70, market_value: 31740, pnl: 9740, pnl_pct: 44.3, allocation: 12.9 },
-  { id: 4, ticker: 'AMD250620C165', type: 'Call', shares: 5, avg_price: 8.50, current: 12.20, market_value: 6100, pnl: 1850, pnl_pct: 43.5, allocation: 2.5 },
-  { id: 5, ticker: 'TSLA', type: 'Stock', shares: 50, avg_price: 220.00, current: 245.60, market_value: 12280, pnl: 1280, pnl_pct: 11.6, allocation: 5.0 },
-  { id: 6, ticker: 'TSLA250718P220', type: 'Put', shares: -2, avg_price: 5.80, current: 3.20, market_value: 640, pnl: 520, pnl_pct: 44.8, allocation: 0.4 },
-  { id: 7, ticker: 'AAPL', type: 'Stock', shares: 150, avg_price: 185.00, current: 199.80, market_value: 29970, pnl: 2220, pnl_pct: 8.0, allocation: 12.2 },
-];
+import { getPortfolioSummary, getPortfolioHoldings } from '@/lib/api';
 
 export default function PortfolioPage() {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [summary, setSummary] = useState(null);
+  const [holdings, setHoldings] = useState([]);
 
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 400);
-    return () => clearTimeout(t);
-  }, []);
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [summaryData, holdingsData] = await Promise.allSettled([
+        getPortfolioSummary(),
+        getPortfolioHoldings(),
+      ]);
+      if (summaryData.status === 'fulfilled') setSummary(summaryData.value);
+      if (holdingsData.status === 'fulfilled') setHoldings(holdingsData.value || []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const cols = [
-    { key: 'ticker', label: 'Ticker' },
-    { key: 'type', label: 'Type' },
-    { key: 'shares', label: 'Qty', render: (v) => formatNumber(Math.abs(v)) },
-    { key: 'avg_price', label: 'Avg Price', render: (v) => formatCurrency(v) },
-    { key: 'current', label: 'Current', render: (v) => formatCurrency(v) },
-    { key: 'market_value', label: 'Market Val', render: (v) => formatCurrency(v) },
-    { key: 'pnl', label: 'P&L', render: (v) => <span className={v >= 0 ? 'text-terminal-green' : 'text-terminal-red'}>{formatCurrency(v)}</span> },
-    { key: 'pnl_pct', label: 'P&L %', render: (v) => <PctChange value={v} /> },
-    { key: 'allocation', label: 'Alloc', render: (v) => `${v.toFixed(1)}%` },
-  ];
+  useEffect(() => { fetchData(); }, []);
 
   if (loading) {
     return (
@@ -59,6 +45,33 @@ export default function PortfolioPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="bg-terminal-red/10 border border-terminal-red/30 rounded-xl p-5 flex items-center justify-between max-w-7xl">
+        <p className="text-sm font-mono text-terminal-red">{error}</p>
+        <button onClick={fetchData} className="text-sm font-mono text-terminal-red hover:text-terminal-text transition-colors">Retry</button>
+      </div>
+    );
+  }
+
+  const totalValue = summary?.total_value ?? 0;
+  const cash = summary?.cash ?? 0;
+  const invested = totalValue - cash;
+  const totalPnl = holdings.reduce((sum, h) => sum + (h.unrealized_pl || 0), 0);
+  const totalPnlPct = totalValue > 0 ? (totalPnl / (totalValue - cash)) * 100 : 0;
+
+  const cols = [
+    { key: 'ticker', label: 'Ticker' },
+    { key: 'strategy_type', label: 'Type' },
+    { key: 'quantity', label: 'Qty', render: (v) => formatNumber(Math.abs(v)) },
+    { key: 'avg_price', label: 'Avg Price', render: (v) => formatCurrency(v) },
+    { key: 'current_price', label: 'Current', render: (v) => formatCurrency(v) },
+    { key: 'market_value', label: 'Market Val', render: (v) => formatCurrency(v) },
+    { key: 'unrealized_pl', label: 'P&L', render: (v) => <span className={v >= 0 ? 'text-terminal-green' : 'text-terminal-red'}>{formatCurrency(v)}</span> },
+    { key: 'unrealized_pl_pct', label: 'P&L %', render: (v) => <PctChange value={v} /> },
+    { key: 'weight_pct', label: 'Alloc', render: (v) => `${(v || 0).toFixed(1)}%` },
+  ];
+
   return (
     <div className="space-y-6 max-w-7xl">
       <h1 className="text-2xl font-sans font-bold text-terminal-text">Portfolio</h1>
@@ -66,29 +79,33 @@ export default function PortfolioPage() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StrategyCard title="Total Value" metrics={{}}>
-          <p className="text-2xl font-mono font-bold text-terminal-green mt-2">{formatCurrency(DEMO_PORTFOLIO_SUMMARY.total_value)}</p>
+          <p className="text-2xl font-mono font-bold text-terminal-green mt-2">{formatCurrency(totalValue)}</p>
         </StrategyCard>
         <StrategyCard title="Total P&L" metrics={{}}>
           <div className="flex items-center gap-2 mt-2">
-            <TrendingUp size={20} className="text-terminal-green" />
-            <p className="text-2xl font-mono font-bold text-terminal-green">{formatCurrency(DEMO_PORTFOLIO_SUMMARY.total_pnl)}</p>
+            {totalPnl >= 0 ? <TrendingUp size={20} className="text-terminal-green" /> : <TrendingDown size={20} className="text-terminal-red" />}
+            <p className={`text-2xl font-mono font-bold ${totalPnl >= 0 ? 'text-terminal-green' : 'text-terminal-red'}`}>{formatCurrency(totalPnl)}</p>
           </div>
-          <PctChange value={DEMO_PORTFOLIO_SUMMARY.total_pnl_pct} />
+          <PctChange value={totalPnlPct} />
         </StrategyCard>
         <StrategyCard title="Cash" metrics={{}}>
-          <p className="text-2xl font-mono font-bold text-terminal-text mt-2">{formatCurrency(DEMO_PORTFOLIO_SUMMARY.cash)}</p>
-          <p className="text-xs font-mono text-terminal-text-muted">{DEMO_PORTFOLIO_SUMMARY.allocation.cash}% allocation</p>
+          <p className="text-2xl font-mono font-bold text-terminal-text mt-2">{formatCurrency(cash)}</p>
+          <p className="text-xs font-mono text-terminal-text-muted">{totalValue > 0 ? ((cash / totalValue) * 100).toFixed(1) : 0}% allocation</p>
         </StrategyCard>
         <StrategyCard title="Invested" metrics={{}}>
-          <p className="text-2xl font-mono font-bold text-terminal-text mt-2">{formatCurrency(DEMO_PORTFOLIO_SUMMARY.invested)}</p>
-          <p className="text-xs font-mono text-terminal-text-muted">{DEMO_PORTFOLIO_SUMMARY.allocation.equities + DEMO_PORTFOLIO_SUMMARY.allocation.options}% in market</p>
+          <p className="text-2xl font-mono font-bold text-terminal-text mt-2">{formatCurrency(invested)}</p>
+          <p className="text-xs font-mono text-terminal-text-muted">{summary?.num_positions ?? 0} positions</p>
         </StrategyCard>
       </div>
 
       {/* Holdings Table */}
       <div className="bg-terminal-bg-card border border-terminal-border rounded-xl p-5">
         <h2 className="text-base font-sans font-semibold text-terminal-text mb-4">Holdings</h2>
-        <DataTable columns={cols} data={DEMO_HOLDINGS} />
+        {holdings.length === 0 ? (
+          <p className="text-sm text-terminal-text-muted font-mono">No holdings found</p>
+        ) : (
+          <DataTable columns={cols} data={holdings} />
+        )}
       </div>
     </div>
   );

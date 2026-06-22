@@ -30,10 +30,12 @@ def load_portfolio_state(db_path: str) -> PortfolioState:
     conn = duckdb.connect(db_path)
     try:
         positions_raw = conn.execute(
-            "SELECT ticker, quantity, avg_price, current_price, beta, delta, "
+            "SELECT ticker, quantity, avg_price, current_price, market_value, cost_basis, "
+            "unrealized_pl, unrealized_pl_pct, beta, delta, "
             "gamma, theta, vega, sector, strategy_type FROM positions WHERE quantity != 0"
         ).fetchall()
-        pos_cols = ["ticker", "quantity", "avg_price", "current_price", "beta", "delta",
+        pos_cols = ["ticker", "quantity", "avg_price", "current_price", "market_value", "cost_basis",
+                     "unrealized_pl", "unrealized_pl_pct", "beta", "delta",
                      "gamma", "theta", "vega", "sector", "strategy_type"]
 
         positions = []
@@ -45,6 +47,10 @@ def load_portfolio_state(db_path: str) -> PortfolioState:
             pos = PortfolioPosition(
                 ticker=p["ticker"], quantity=float(p["quantity"]),
                 avg_price=float(p["avg_price"]), current_price=float(p["current_price"]),
+                market_value=float(p["market_value"]) if p["market_value"] else 0.0,
+                cost_basis=float(p["cost_basis"]) if p["cost_basis"] else 0.0,
+                unrealized_pl=float(p["unrealized_pl"]) if p["unrealized_pl"] else 0.0,
+                unrealized_pl_pct=float(p["unrealized_pl_pct"]) if p["unrealized_pl_pct"] else 0.0,
                 beta=float(p["beta"]), delta=float(p["delta"]),
                 gamma=float(p["gamma"]), theta=float(p["theta"]),
                 vega=float(p["vega"]), sector=str(p["sector"] or _get_sector_for_ticker(p["ticker"])),

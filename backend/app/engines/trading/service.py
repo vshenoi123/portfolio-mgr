@@ -306,8 +306,6 @@ class AlpacaClient:
                 for pos in positions:
                     ticker = pos.symbol
                     qty = float(pos.qty)
-                    side = pos.side.value if hasattr(pos.side, "value") else str(pos.side)
-                    signed_qty = qty if side == "long" else -qty
                     conn.execute(
                         """
                         INSERT INTO positions
@@ -318,7 +316,7 @@ class AlpacaClient:
                         """,
                         (
                             ticker,
-                            signed_qty,
+                            qty,
                             float(pos.avg_entry_price),
                             float(pos.current_price),
                             float(pos.market_value),
