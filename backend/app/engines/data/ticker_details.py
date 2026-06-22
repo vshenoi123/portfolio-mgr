@@ -33,6 +33,11 @@ def get_ticker_details(tickers: list[str] | None = None) -> dict[str, dict]:
     if _cache is None:
         _cache = _load_cache()
 
+    # Auto-refresh if cache is empty
+    if not _cache:
+        logger.info("Ticker details cache is empty, refreshing from Polygon API")
+        refresh_ticker_details()
+
     result = {}
     for t in (tickers or []):
         info = dict(_cache.get(t, {}))
