@@ -98,7 +98,7 @@ export default function Dashboard() {
 
   if (error) return <ErrorBanner message={error} onRetry={fetchData} />;
 
-  const regimeLabel = regime?.overall_regime || 'Unknown';
+  const regimeLabel = (regime?.overall_regime?.regime || 'Unknown').toLowerCase();
   const healthScore = health?.portfolio_health_score ?? 0;
   const totalValue = health?.total_value ?? 0;
   const concentration = health?.concentration_pct ?? 0;
