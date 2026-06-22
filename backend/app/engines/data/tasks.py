@@ -32,12 +32,13 @@ def refresh_ticker_data(self, ticker: str, days: int = 365) -> dict:
 
 @shared_task
 def refresh_all_data(days: int = 365) -> list[dict]:
-    from app.models.universe import DEFAULT_UNIVERSE
-    logger.info("Starting refresh for ALL %d tickers: %s", len(DEFAULT_UNIVERSE), DEFAULT_UNIVERSE)
+    from app.models.universe import get_universe
+    tickers = get_universe(use_api=True)
+    logger.info("Starting refresh for ALL %d tickers: %s", len(tickers), tickers[:10])
     results = []
-    for i, ticker in enumerate(DEFAULT_UNIVERSE):
-        logger.info("Dispatching refresh %d/%d: %s", i + 1, len(DEFAULT_UNIVERSE), ticker)
+    for i, ticker in enumerate(tickers):
+        logger.info("Dispatching refresh %d/%d: %s", i + 1, len(tickers), ticker)
         result = refresh_ticker_data.delay(ticker, days=days)
         results.append(result)
-    logger.info("All %d ticker refresh tasks dispatched", len(DEFAULT_UNIVERSE))
+    logger.info("All %d ticker refresh tasks dispatched", len(tickers))
     return results

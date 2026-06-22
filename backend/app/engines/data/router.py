@@ -66,11 +66,12 @@ def refresh_ticker(
 def refresh_all(_=Depends(verify_api_key)):
     from app.engines.data.tasks import refresh_all_data
     from app.core.celery_helpers import dispatch_task
-    from app.models.universe import DEFAULT_UNIVERSE
-    logger.info("Refreshing ALL tickers (%d total): %s", len(DEFAULT_UNIVERSE), DEFAULT_UNIVERSE[:10])
+    from app.models.universe import get_universe
+    tickers = get_universe(use_api=True)
+    logger.info("Refreshing ALL %d tickers (live from Polygon)", len(tickers))
     result = dispatch_task(refresh_all_data)
     result["message"] = "Refreshing all tickers"
-    result["tickers"] = DEFAULT_UNIVERSE
+    result["tickers"] = tickers
     return result
 
 
