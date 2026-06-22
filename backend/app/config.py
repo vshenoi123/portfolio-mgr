@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     # FRED API
     fred_api_key: str = ""
 
+    # LLM provider
+    llm_provider: str = "openai"
+    openai_api_key: str = ""
+    google_api_key: str = ""
+
     # Phase 4: Risk limits
     max_position_size_pct: float = 15.0
     max_sector_exposure_pct: float = 30.0

@@ -16,9 +16,14 @@ class ReportService:
     def provider(self):
         if self._provider is None:
             try:
+                prov = getattr(settings, "llm_provider", "openai")
+                if prov == "gemini":
+                    api_key = getattr(settings, "google_api_key", "")
+                else:
+                    api_key = getattr(settings, "openai_api_key", "")
                 self._provider = LLMFactory.create(
-                    provider=getattr(settings, "llm_provider", "openai"),
-                    api_key=getattr(settings, "openai_api_key", ""),
+                    provider=prov, api_key=api_key,
+                    base_url=getattr(settings, "ollama_base_url", "http://localhost:11434"),
                 )
             except Exception as e:
                 logger.warning("LLM provider init failed: %s", e)
@@ -36,7 +41,7 @@ class ReportService:
             except Exception as e:
                 sections = [ReportSection(title="AI Analysis", content=f"Report generation unavailable: {e}", priority="low")]
         else:
-            sections = [ReportSection(title="AI Analysis", content="AI provider not configured. Set OPENAI_API_KEY or OLLAMA_BASE_URL.", priority="low")]
+            sections = [ReportSection(title="AI Analysis", content="AI provider not configured. Set OPENAI_API_KEY, GOOGLE_API_KEY, or OLLAMA_BASE_URL.", priority="low")]
         return DailyReportResponse(
             report_date=rd.isoformat(), sections=sections,
             summary="Daily portfolio report", generated_at=datetime.now(timezone.utc).isoformat(),
