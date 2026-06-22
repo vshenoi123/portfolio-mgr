@@ -11,7 +11,33 @@ if not redis_url:
 else:
     logger.critical("Celery broker URL from env: %s", redis_url)
 
-celery_app = Celery("portfolio_mgr", broker=redis_url, backend=redis_url)
+celery_app = Celery(
+    "portfolio_mgr",
+    broker=redis_url,
+    backend=redis_url,
+    include=[
+        "app.engines.ai_manager.tasks",
+        "app.engines.allocation.tasks",
+        "app.engines.options.tasks",
+        "app.engines.self_learning.tasks",
+        "app.engines.strategy.tasks",
+        "app.engines.opportunity.tasks",
+        "app.engines.monte_carlo.tasks",
+        "app.engines.regime.tasks",
+        "app.engines.features.tasks",
+        "app.engines.breakout.tasks",
+        "app.engines.risk.tasks",
+        "app.engines.cost.tasks",
+        "app.engines.cusum.tasks",
+        "app.engines.trading.tasks",
+        "app.engines.stress_test.tasks",
+        "app.engines.replacement.tasks",
+        "app.engines.data.tasks",
+        "app.engines.portfolio.tasks",
+        "app.engines.monitoring.tasks",
+        "app.engines.positions.tasks",
+    ],
+)
 
 # Register as the current app so shared_task.delay() uses this broker
 import celery._state as _state
