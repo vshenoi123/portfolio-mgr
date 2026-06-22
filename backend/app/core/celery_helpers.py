@@ -5,16 +5,15 @@ logger = logging.getLogger(__name__)
 
 
 def dispatch_task(task_func, *args, **kwargs) -> dict:
-    """Dispatch a Celery task with retry on connection failure."""
+    """Dispatch a Celery task using the configured app directly."""
     task_name = task_func.name if hasattr(task_func, 'name') else str(task_func)
+    from app.celery_app import celery_app
 
-    # Log which Celery app will be used
-    from celery._state import current_app
-    logger.info("Dispatching task: %s | args=%s kwargs=%s | app_id=%s broker=%s",
-        task_name, args, kwargs, id(current_app), current_app.conf.broker_url)
+    logger.info("Dispatching task: %s | args=%s kwargs=%s | broker=%s",
+        task_name, args, kwargs, celery_app.conf.broker_url)
 
     try:
-        task = task_func.delay(*args, **kwargs)
+        task = celery_app.send_task(task_func.name, args=args, kwargs=kwargs)
         logger.info("Task dispatched successfully: %s | task_id=%s", task_name, task.id)
         return {"task_id": task.id, "status": "queued"}
     except Exception as e:

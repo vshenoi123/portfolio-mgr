@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.config import settings
+import app.celery_app  # noqa: F401 — ensure celery_app is loaded and registered as current
 from app.engines.cusum.router import router as cusum_router
 from app.engines.data.router import router as data_router
 from app.engines.features.router import router as features_router
