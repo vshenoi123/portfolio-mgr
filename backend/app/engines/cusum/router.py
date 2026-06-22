@@ -29,6 +29,8 @@ def get_cusum(ticker: str, days: int = 365):
 
 
 @router.post("/cusum/compute/{ticker}", status_code=202)
-def compute_cusum_endpoint(ticker: str, days: int = 365, _=Depends(verify_api_key)):
-    task = compute_cusum_task.delay(ticker, lookback_days=days)
-    return {"task_id": task.id, "ticker": ticker.upper(), "status": "queued"}
+def compute_cusum(ticker: str, days: int = 365, _=Depends(verify_api_key)):
+    from app.core.celery_helpers import dispatch_task
+    result = dispatch_task(compute_cusum_task, ticker, lookback_days=days)
+    result["ticker"] = ticker.upper()
+    return result

@@ -34,5 +34,5 @@ def get_opportunities_by_strategy(strategy_type: str, top_n: int = 20):
 
 @router.post("/compute", status_code=202)
 def compute_opportunities_endpoint(_=Depends(verify_api_key)):
-    task = compute_opp_task.delay()
-    return {"task_id": task.id, "status": "queued"}
+    from app.core.celery_helpers import dispatch_task
+    return dispatch_task(compute_opp_task)

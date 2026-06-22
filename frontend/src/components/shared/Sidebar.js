@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard, Lightbulb, PieChart, Activity, Settings,
+  LayoutDashboard, Lightbulb, PieChart, Activity, Settings, HelpCircle,
 } from 'lucide-react';
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { href: '/portfolio', label: 'Portfolio', icon: PieChart },
   { href: '/monitoring', label: 'Monitoring', icon: Activity },
   { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/help', label: 'Help', icon: HelpCircle },
 ];
 
 export default function Sidebar() {

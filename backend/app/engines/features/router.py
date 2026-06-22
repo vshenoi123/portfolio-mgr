@@ -30,15 +30,19 @@ def get_indicators(ticker: str, days: int = 365):
 
 @router.post("/indicators/compute/{ticker}", status_code=202)
 def compute_indicators(ticker: str, days: int = 365, _=Depends(verify_api_key)):
-    task = compute_features_task.delay(ticker, days=days)
-    return {"task_id": task.id, "ticker": ticker.upper(), "status": "queued"}
+    from app.core.celery_helpers import dispatch_task
+    result = dispatch_task(compute_features_task, ticker, days=days)
+    result["ticker"] = ticker.upper()
+    return result
 
 
 @router.post("/indicators/compute-all", status_code=202)
 def compute_all_indicators_endpoint(_=Depends(verify_api_key)):
     from app.engines.features.tasks import compute_all_features
-    task = compute_all_features.delay()
-    return {"task_id": task.id, "status": "queued", "message": "Computing features for all tickers"}
+    from app.core.celery_helpers import dispatch_task
+    result = dispatch_task(compute_all_features)
+    result["message"] = "Computing features for all tickers"
+    return result
 
 
 @router.get("/features/health")

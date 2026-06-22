@@ -55,15 +55,19 @@ def refresh_ticker(
     days: int = 365,
     _=Depends(verify_api_key),
 ):
-    task = refresh_ticker_data.delay(ticker, days=days)
-    return {"task_id": task.id, "ticker": ticker.upper(), "status": "queued"}
+    from app.core.celery_helpers import dispatch_task
+    result = dispatch_task(refresh_ticker_data, ticker, days=days)
+    result["ticker"] = ticker.upper()
+    return result
 
 
 @router.post("/refresh-all", status_code=202)
 def refresh_all(_=Depends(verify_api_key)):
     from app.engines.data.tasks import refresh_all_data
-    task = refresh_all_data.delay()
-    return {"task_id": task.id, "status": "queued", "message": "Refreshing all tickers"}
+    from app.core.celery_helpers import dispatch_task
+    result = dispatch_task(refresh_all_data)
+    result["message"] = "Refreshing all tickers"
+    return result
 
 
 @router.get("/health")

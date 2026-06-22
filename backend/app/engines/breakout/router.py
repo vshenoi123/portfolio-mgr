@@ -30,6 +30,8 @@ def get_breakouts(ticker: str, days: int = 365):
 
 
 @router.post("/breakouts/compute/{ticker}", status_code=202)
-def compute_breakouts_endpoint(ticker: str, days: int = 365, _=Depends(verify_api_key)):
-    task = compute_breakouts_task.delay(ticker, days=days)
-    return {"task_id": task.id, "ticker": ticker.upper(), "status": "queued"}
+def compute_breakouts(ticker: str, days: int = 365, _=Depends(verify_api_key)):
+    from app.core.celery_helpers import dispatch_task
+    result = dispatch_task(compute_breakouts_task, ticker, days=days)
+    result["ticker"] = ticker.upper()
+    return result

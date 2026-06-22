@@ -36,12 +36,16 @@ def get_regime_for_ticker(ticker: str, lookback_days: int = 756):
 
 @router.post("/regime/compute", status_code=202)
 def compute_regime_endpoint(req: RegimeRequest, _=Depends(verify_api_key)):
-    task = compute_regime_task.delay(ticker=req.ticker, n_states=req.n_states, lookback_days=req.lookback_days)
-    return {"task_id": task.id, "ticker": req.ticker, "status": "queued"}
+    from app.core.celery_helpers import dispatch_task
+    result = dispatch_task(compute_regime_task, ticker=req.ticker, n_states=req.n_states, lookback_days=req.lookback_days)
+    result["ticker"] = req.ticker
+    return result
 
 
 @router.post("/regime/compute-all", status_code=202)
 def compute_all_regimes_endpoint(n_states: int = 4, _=Depends(verify_api_key)):
     from app.engines.regime.tasks import compute_all_regimes
-    task = compute_all_regimes.delay(n_states=n_states)
-    return {"task_id": task.id, "status": "queued", "message": "Computing regimes for all tickers"}
+    from app.core.celery_helpers import dispatch_task
+    result = dispatch_task(compute_all_regimes, n_states=n_states)
+    result["message"] = "Computing regimes for all tickers"
+    return result
