@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Save, Bell, Shield, DollarSign, RefreshCw, Play, RotateCcw, Activity, BarChart3, AlertTriangle, FileText } from 'lucide-react';
 import StatusDot from '@/components/shared/StatusDot';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 const ACTIONS = [
   { id: 'sync_positions', label: 'Sync Alpaca Positions', desc: 'Pull latest positions from Alpaca paper account', icon: RotateCcw, endpoint: '/trading/sync', method: 'POST' },
