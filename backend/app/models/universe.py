@@ -28,14 +28,12 @@ def fetch_universe_from_polygon(
         client = RESTClient(settings.polygon_api_key)
         tickers = set()
 
-        # Fetch active stocks — sort by volume (valid sort field), filter by market cap
+        # Fetch active stocks — no sort param (Polygon API has limited sort fields)
         stock_resp = client.list_tickers(
             market="stocks",
             type="CS",
             active=True,
             limit=tickers_per_type,
-            sort="volume",
-            order="desc",
         )
         for t in stock_resp:
             if hasattr(t, "market_cap") and t.market_cap and t.market_cap >= min_market_cap:

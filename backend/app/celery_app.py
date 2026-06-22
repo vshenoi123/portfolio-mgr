@@ -13,6 +13,15 @@ else:
 
 celery_app = Celery("portfolio_mgr", broker=redis_url, backend=redis_url)
 
+# Force eager connection to validate broker URL at startup
+try:
+    conn = celery_app.connection()
+    conn.connect()
+    logger.critical("Celery broker connection validated successfully to %s", redis_url)
+    conn.close()
+except Exception as e:
+    logger.critical("Celery broker connection FAILED: %s", e)
+
 celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
