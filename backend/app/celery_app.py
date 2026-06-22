@@ -11,20 +11,23 @@ if not redis_url:
 else:
     logger.critical("Celery broker URL from env: %s", redis_url)
 
-celery_app = Celery("portfolio_mgr")
+celery_app = Celery("portfolio_mgr", broker=redis_url, backend=redis_url)
+celery_app.set_as_current()
 
 celery_app.conf.update(
     broker_url=redis_url,
     result_backend=redis_url,
+    broker_transport="redis",
+    broker_transport_options={"visibility_timeout": 3600},
+    broker_connection_retry_on_startup=True,
+    broker_connection_retry=True,
+    broker_connection_max_retries=10,
+    broker_connection_retry_delay=1.0,
     task_serializer="json",
     accept_content=["json"],
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
-    broker_connection_retry_on_startup=True,
-    broker_connection_retry=True,
-    broker_connection_max_retries=10,
-    broker_connection_retry_delay=1.0,
     beat_schedule={
         # Phase 1
         "refresh-all-data-daily": {
@@ -114,4 +117,4 @@ celery_app.conf.update(
     },
 )
 
-logger.critical("Celery app configured: broker=%s", celery_app.conf.broker_url)
+logger.critical("Celery configured: broker=%s transport=%s", celery_app.conf.broker_url, celery_app.conf.broker_transport)

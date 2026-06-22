@@ -84,3 +84,13 @@ def data_health():
         last_refresh=None,
         status="healthy",
     )
+
+
+@router.get("/refresh/status")
+def refresh_status():
+    from app.core.celery_helpers import dispatch_task
+    from celery.app.control import Inspect
+    from app.celery_app import celery_app
+    i = celery_app.control.inspect(timeout=1.0)
+    active = i.active() or {}
+    return {"active_tasks": active}
