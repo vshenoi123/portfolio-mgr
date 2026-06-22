@@ -9,6 +9,7 @@ import DataTable from '@/components/shared/DataTable';
 import StrategyCard from '@/components/shared/StrategyCard';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { getRegime, getPortfolioHealth, getOpportunities, getPortfolioHoldings, getDailyReport } from '@/lib/api';
+import { useTickerDetails } from '@/hooks/useTickerDetails';
 
 function HealthGauge({ score }) {
   const color = score >= 70 ? '#22c55e' : score >= 40 ? '#eab308' : '#ef4444';
@@ -65,6 +66,9 @@ export default function Dashboard() {
   const [holdings, setHoldings] = useState([]);
   const [report, setReport] = useState(null);
 
+  const allTickers = [...new Set([...opps.map((o) => o.ticker), ...holdings.map((h) => h.ticker)])];
+  const { details } = useTickerDetails(allTickers);
+
   const fetchData = async () => {
     setLoading(true);
     setError(null);
@@ -100,7 +104,15 @@ export default function Dashboard() {
   const concentration = health?.concentration_pct ?? 0;
 
   const posCols = [
-    { key: 'ticker', label: 'Ticker' },
+    { key: 'ticker', label: 'Ticker', render: (v) => {
+      const info = details[v] || {};
+      return (
+        <div>
+          <span className="font-mono font-semibold">{v}</span>
+          {info.name && <p className="text-xs font-sans text-terminal-text-muted truncate max-w-[140px]">{info.name}</p>}
+        </div>
+      );
+    }},
     { key: 'quantity', label: 'Shares', render: (v) => formatNumber(Math.abs(v)) },
     { key: 'avg_price', label: 'Avg Price', render: (v) => formatCurrency(v) },
     { key: 'current_price', label: 'Current', render: (v) => formatCurrency(v) },
@@ -167,10 +179,15 @@ export default function Dashboard() {
             {opps.length === 0 && (
               <p className="text-sm text-terminal-text-muted font-mono">No opportunities computed yet</p>
             )}
-            {opps.slice(0, 5).map((opp, i) => (
+            {opps.slice(0, 5).map((opp, i) => {
+              const info = details[opp.ticker] || {};
+              return (
               <div key={opp.ticker + i} className="flex items-center justify-between p-3 rounded-lg bg-terminal-bg-light hover:bg-terminal-bg-hover transition-colors">
                 <div className="flex items-center gap-4">
-                  <span className="font-mono font-semibold text-terminal-text w-16">{opp.ticker}</span>
+                  <div>
+                    <span className="font-mono font-semibold text-terminal-text">{opp.ticker}</span>
+                    {info.name && <p className="text-xs font-sans text-terminal-text-muted truncate max-w-[180px]">{info.name}</p>}
+                  </div>
                   <span className="px-2 py-0.5 text-xs font-mono rounded bg-terminal-green/10 text-terminal-green border border-terminal-green/20 uppercase tracking-wider">{opp.strategy_type}</span>
                 </div>
                 <div className="flex items-center gap-6">
@@ -181,7 +198,8 @@ export default function Dashboard() {
                   <ScoreBadge score={opp.total_score} />
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

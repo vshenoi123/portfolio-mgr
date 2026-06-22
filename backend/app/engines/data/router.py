@@ -94,3 +94,18 @@ def refresh_status():
     i = celery_app.control.inspect(timeout=1.0)
     active = i.active() or {}
     return {"active_tasks": active}
+
+
+@router.get("/ticker-details")
+def get_ticker_details_endpoint(tickers: str = ""):
+    from app.engines.data.ticker_details import get_ticker_details
+    ticker_list = [t.strip().upper() for t in tickers.split(",") if t.strip()] if tickers else None
+    details = get_ticker_details(ticker_list)
+    return {"details": details, "count": len(details)}
+
+
+@router.post("/ticker-details/refresh", status_code=202)
+def refresh_ticker_details_endpoint(_=Depends(verify_api_key)):
+    from app.engines.data.ticker_details import refresh_ticker_details
+    count = refresh_ticker_details()
+    return {"status": "success", "count": count}

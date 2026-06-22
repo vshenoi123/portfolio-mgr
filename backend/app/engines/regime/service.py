@@ -14,6 +14,7 @@ REGIME_TEMPLATES = {
 
 
 def fit_hmm(returns: pd.Series, n_states: int = 4) -> tuple[hmm.GaussianHMM, np.ndarray]:
+    returns = returns.replace([np.inf, -np.inf], np.nan).dropna()
     X = returns.values.reshape(-1, 1)
     model = hmm.GaussianHMM(
         n_components=n_states, covariance_type="full", random_state=42, n_iter=100,
@@ -24,6 +25,7 @@ def fit_hmm(returns: pd.Series, n_states: int = 4) -> tuple[hmm.GaussianHMM, np.
 
 
 def predict_regime(model: hmm.GaussianHMM, returns: pd.Series) -> RegimePrediction:
+    returns = returns.replace([np.inf, -np.inf], np.nan).dropna()
     X = returns.values.reshape(-1, 1)
     state_probs = model.predict_proba(X)
     current_probs = state_probs[-1]
@@ -43,6 +45,7 @@ def predict_regime(model: hmm.GaussianHMM, returns: pd.Series) -> RegimePredicti
 
 
 def full_regime_analysis(returns: pd.Series, n_states: int = 4) -> dict:
+    returns = returns.replace([np.inf, -np.inf], np.nan).dropna()
     if len(returns) < n_states * 10:
         return {
             "overall_regime": RegimePrediction(

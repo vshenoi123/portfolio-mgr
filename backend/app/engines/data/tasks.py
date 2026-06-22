@@ -140,3 +140,10 @@ def refresh_all_data(self, days: int = 365) -> dict:
         "error_samples": results["errors"][:5],
         "elapsed_seconds": round(elapsed, 1),
     }
+
+
+@shared_task
+def refresh_ticker_details_task() -> dict:
+    from app.engines.data.ticker_details import refresh_ticker_details
+    count = refresh_ticker_details()
+    return {"status": "success", "count": count}

@@ -3,18 +3,27 @@
 import { useState, useEffect } from 'react';
 import { Filter, RefreshCw } from 'lucide-react';
 import StrategyCard from '@/components/shared/StrategyCard';
-import ScoreBadge from '@/components/shared/ScoreBadge';
-import PctChange from '@/components/shared/PctChange';
-import { formatCurrency } from '@/lib/utils';
+import { useTickerDetails } from '@/hooks/useTickerDetails';
 import { getOpportunities } from '@/lib/api';
 
 const STRATEGIES = ['all', 'swing', 'csp', 'leaps', 'pmcc'];
+
+function formatMarketCap(mc) {
+  if (!mc) return '';
+  if (mc >= 1e12) return `$${(mc / 1e12).toFixed(1)}T`;
+  if (mc >= 1e9) return `$${(mc / 1e9).toFixed(1)}B`;
+  if (mc >= 1e6) return `$${(mc / 1e6).toFixed(1)}M`;
+  return `$${mc.toLocaleString()}`;
+}
 
 export default function OpportunitiesPage() {
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [opps, setOpps] = useState([]);
+
+  const tickers = opps.map((o) => o.ticker);
+  const { details } = useTickerDetails(tickers);
 
   const fetchData = async (strategyType = 'all') => {
     setLoading(true);
@@ -77,27 +86,38 @@ export default function OpportunitiesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {opps.map((opp, i) => (
-            <StrategyCard
-              key={opp.ticker + i}
-              title={opp.ticker}
-              score={opp.total_score}
-              strategy={opp.strategy_type}
-              metrics={{
-                Score: opp.total_score?.toFixed(1),
-                Regime: opp.regime_score?.toFixed(1),
-                Breakout: opp.breakout_score?.toFixed(1),
-                Trend: opp.trend_score?.toFixed(1),
-                Volume: opp.volume_score?.toFixed(1),
-              }}
-            >
-              {opp.refined_score != null && (
-                <p className="text-xs font-mono text-terminal-text-muted mt-2 pt-2 border-t border-terminal-border">
-                  ML Refined: <span className="text-terminal-green">{opp.refined_score.toFixed(1)}</span>
-                </p>
-              )}
-            </StrategyCard>
-          ))}
+          {opps.map((opp, i) => {
+            const info = details[opp.ticker] || {};
+            const detailTags = [
+              info.exchange,
+              info.type === 'etf' ? 'ETF' : null,
+              formatMarketCap(info.market_cap),
+            ].filter(Boolean);
+
+            return (
+              <StrategyCard
+                key={opp.ticker + i}
+                title={opp.ticker}
+                subtitle={info.name || ''}
+                details={detailTags}
+                score={opp.total_score}
+                strategy={opp.strategy_type}
+                metrics={{
+                  Score: opp.total_score?.toFixed(1),
+                  Regime: opp.regime_score?.toFixed(1),
+                  Breakout: opp.breakout_score?.toFixed(1),
+                  Trend: opp.trend_score?.toFixed(1),
+                  Volume: opp.volume_score?.toFixed(1),
+                }}
+              >
+                {opp.refined_score != null && (
+                  <p className="text-xs font-mono text-terminal-text-muted mt-2 pt-2 border-t border-terminal-border">
+                    ML Refined: <span className="text-terminal-green">{opp.refined_score.toFixed(1)}</span>
+                  </p>
+                )}
+              </StrategyCard>
+            );
+          })}
         </div>
       )}
 

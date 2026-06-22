@@ -67,6 +67,10 @@ celery_app.conf.update(
             "task": "app.engines.data.tasks.refresh_all_data",
             "schedule": 86400.0,
         },
+        "refresh-ticker-details-daily": {
+            "task": "app.engines.data.tasks.refresh_ticker_details_task",
+            "schedule": 86400.0,
+        },
         # Phase 2
         "compute-all-features-daily": {
             "task": "app.engines.features.tasks.compute_all_features",

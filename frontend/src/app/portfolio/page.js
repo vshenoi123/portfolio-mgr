@@ -7,12 +7,16 @@ import PctChange from '@/components/shared/PctChange';
 import StrategyCard from '@/components/shared/StrategyCard';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { getPortfolioSummary, getPortfolioHoldings } from '@/lib/api';
+import { useTickerDetails } from '@/hooks/useTickerDetails';
 
 export default function PortfolioPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [summary, setSummary] = useState(null);
   const [holdings, setHoldings] = useState([]);
+
+  const tickers = holdings.map((h) => h.ticker);
+  const { details } = useTickerDetails(tickers);
 
   const fetchData = async () => {
     setLoading(true);
@@ -61,7 +65,15 @@ export default function PortfolioPage() {
   const totalPnlPct = totalValue > 0 ? (totalPnl / (totalValue - cash)) * 100 : 0;
 
   const cols = [
-    { key: 'ticker', label: 'Ticker' },
+    { key: 'ticker', label: 'Ticker', render: (v) => {
+      const info = details[v] || {};
+      return (
+        <div>
+          <span className="font-mono font-semibold">{v}</span>
+          {info.name && <p className="text-xs font-sans text-terminal-text-muted truncate max-w-[140px]">{info.name}</p>}
+        </div>
+      );
+    }},
     { key: 'strategy_type', label: 'Type' },
     { key: 'quantity', label: 'Qty', render: (v) => formatNumber(Math.abs(v)) },
     { key: 'avg_price', label: 'Avg Price', render: (v) => formatCurrency(v) },

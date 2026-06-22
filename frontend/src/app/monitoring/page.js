@@ -7,6 +7,7 @@ import PctChange from '@/components/shared/PctChange';
 import DataTable from '@/components/shared/DataTable';
 import StrategyCard from '@/components/shared/StrategyCard';
 import { getMonitoringSummary, getMonitoringAlerts } from '@/lib/api';
+import { useTickerDetails } from '@/hooks/useTickerDetails';
 
 const sevIcon = (sev) => {
   switch (sev) {
@@ -29,6 +30,10 @@ export default function MonitoringPage() {
   const [error, setError] = useState(null);
   const [summary, setSummary] = useState(null);
   const [alerts, setAlerts] = useState([]);
+
+  const positions = summary?.positions || [];
+  const tickers = positions.map((p) => p.ticker);
+  const { details } = useTickerDetails(tickers);
 
   const fetchData = async () => {
     setLoading(true);
@@ -81,7 +86,15 @@ export default function MonitoringPage() {
   }));
 
   const svcCols = [
-    { key: 'ticker', label: 'Ticker' },
+    { key: 'ticker', label: 'Ticker', render: (v) => {
+      const info = details[v] || {};
+      return (
+        <div>
+          <span className="font-mono font-semibold">{v}</span>
+          {info.name && <p className="text-xs font-sans text-terminal-text-muted truncate max-w-[140px]">{info.name}</p>}
+        </div>
+      );
+    }},
     { key: 'quantity', label: 'Quantity', render: (v) => Math.abs(v) },
     { key: 'market_value', label: 'Market Value', render: (v) => `$${(v || 0).toFixed(2)}` },
     { key: 'unrealized_pl', label: 'P&L', render: (v) => <span className={(v || 0) >= 0 ? 'text-terminal-green' : 'text-terminal-red'}>${Math.abs(v || 0).toFixed(2)}</span> },

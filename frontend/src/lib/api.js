@@ -33,3 +33,8 @@ export function getPositions() { return fetchApi('/trading/positions'); }
 export function syncPositions() { return fetchApi('/trading/sync', { method: 'POST' }); }
 
 export function triggerAction(endpoint, options = {}) { return fetchApi(endpoint, options); }
+
+export function getTickerDetails(tickers) {
+  const tickersParam = Array.isArray(tickers) ? tickers.join(',') : tickers;
+  return fetchApi(`/data/ticker-details?tickers=${tickersParam}`);
+}
