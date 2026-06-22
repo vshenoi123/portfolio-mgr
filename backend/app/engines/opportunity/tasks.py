@@ -136,9 +136,11 @@ def _load_todays_signals() -> list[dict]:
                 volume = rec.get("volume", {})
                 trend = rec.get("trend", {})
                 momentum = rec.get("momentum", {})
-                merged[ticker]["relative_strength_score"] = market_rel.get("relative_strength", 0.5) * 100
-                merged[ticker]["volume_score"] = min(100, volume.get("obv", 0) * 100)
-                merged[ticker]["trend_score"] = trend.get("adx", 50)
+                rs = market_rel.get("relative_strength", 1)
+                merged[ticker]["relative_strength_score"] = min(100, max(0, rs * 50))
+                rel_vol = volume.get("relative_volume_21", 1)
+                merged[ticker]["volume_score"] = min(100, max(0, rel_vol * 25))
+                merged[ticker]["trend_score"] = min(100, max(0, trend.get("adx", 50)))
 
     combined = list(merged.values())
     if not combined:
