@@ -8,7 +8,7 @@ import { getOpportunities } from '@/lib/api';
 import { getCachedOpportunities, setCachedOpportunities, clearOpportunitiesCache } from '@/lib/opportunitiesCache';
 
 const STRATEGIES = ['all', 'swing', 'csp', 'leaps', 'pmcc'];
-const ASSET_TYPES = ['all', 'stocks', 'etfs'];
+const ASSET_TYPES = ['stocks', 'etfs'];
 
 function formatMarketCap(mc) {
   if (!mc) return '';
@@ -57,14 +57,16 @@ function ScoreExplanations() {
 
 export default function OpportunitiesPage() {
   const [filter, setFilter] = useState('all');
-  const [assetFilter, setAssetFilter] = useState('all');
+  const [assetFilter, setAssetFilter] = useState('stocks');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [opps, setOpps] = useState([]);
   const [tradeTicker, setTradeTicker] = useState(null);
 
-  const fetchData = async (strategyType = 'all', forceRefresh = false) => {
-    const cached = getCachedOpportunities(strategyType);
+  const cacheKey = `${filter}_${assetFilter}`;
+
+  const fetchData = async (strategyType = 'all', assetType = 'stocks', forceRefresh = false) => {
+    const cached = getCachedOpportunities(cacheKey);
     if (cached && !forceRefresh) {
       setOpps(cached.opportunities || []);
       setLoading(false);
@@ -74,8 +76,8 @@ export default function OpportunitiesPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getOpportunities(strategyType, 50, 'all');
-      setCachedOpportunities(strategyType, data);
+      const data = await getOpportunities(strategyType, 50, assetType);
+      setCachedOpportunities(cacheKey, data);
       setOpps(data.opportunities || []);
     } catch (e) {
       setError(e.message);
@@ -84,21 +86,12 @@ export default function OpportunitiesPage() {
     }
   };
 
-  useEffect(() => { fetchData(filter); }, [filter]);
+  useEffect(() => { fetchData(filter, assetFilter); }, [filter, assetFilter]);
 
   const handleRefresh = () => {
     clearOpportunitiesCache();
-    fetchData(filter, true);
+    fetchData(filter, assetFilter, true);
   };
-
-  const filteredOpps = opps.filter((opp) => {
-    if (assetFilter === 'etfs') return opp.asset_type === 'etf';
-    if (assetFilter === 'stocks') return opp.asset_type !== 'etf';
-    return true;
-  });
-
-  const stockCount = opps.filter((o) => o.asset_type !== 'etf').length;
-  const etfCount = opps.filter((o) => o.asset_type === 'etf').length;
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -138,13 +131,13 @@ export default function OpportunitiesPage() {
             <button
               key={a}
               onClick={() => setAssetFilter(a)}
-              className={`px-3 py-1.5 text-sm font-mono rounded-lg border transition-colors ${
+              className={`px-3 py-1.5 text-sm font-mono rounded-lg border transition-colors uppercase tracking-wider ${
                 assetFilter === a
                   ? 'bg-terminal-green/10 text-terminal-green border-terminal-green/30'
                   : 'bg-terminal-bg-card text-terminal-text-muted border-terminal-border hover:border-terminal-green/20 hover:text-terminal-text'
               }`}
             >
-              {a === 'all' ? 'All' : a === 'stocks' ? `Stocks (${stockCount})` : `ETFs (${etfCount})`}
+              {a}
             </button>
           ))}
         </div>
@@ -165,7 +158,7 @@ export default function OpportunitiesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {filteredOpps.map((opp, i) => {
+          {opps.map((opp, i) => {
             const detailTags = [
               opp.last_price ? `$${opp.last_price.toFixed(2)}` : null,
               opp.exchange,
@@ -208,9 +201,9 @@ export default function OpportunitiesPage() {
         </div>
       )}
 
-      {!loading && !error && filteredOpps.length === 0 && (
+      {!loading && !error && opps.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-terminal-text-muted font-sans">No {assetFilter === 'all' ? '' : assetFilter + ' '}opportunities found for <span className="font-mono text-terminal-text">{filter}</span></p>
+          <p className="text-terminal-text-muted font-sans">No {assetFilter} opportunities found for <span className="font-mono text-terminal-text">{filter}</span></p>
         </div>
       )}
 

@@ -1,5 +1,4 @@
 import logging
-import os
 import traceback
 from datetime import datetime, timezone
 
@@ -12,19 +11,6 @@ from app.engines.opportunity.tasks import compute_opportunities as compute_opp_t
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/opportunities", tags=["opportunities"])
-
-
-def _interleave(stocks: list, etfs: list, top_n: int) -> list:
-    half = max(1, top_n // 2)
-    stocks = stocks[:half]
-    etfs = etfs[:half]
-    result = []
-    for i in range(max(len(stocks), len(etfs))):
-        if i < len(stocks):
-            result.append(stocks[i])
-        if i < len(etfs):
-            result.append(etfs[i])
-    return result
 
 
 def _enrich_with_prices(scores: list[OpportunityScore]) -> None:
@@ -43,15 +29,12 @@ def _enrich_with_prices(scores: list[OpportunityScore]) -> None:
 
 
 def _respond(scores: list[OpportunityScore], asset_type: str, top_n: int) -> OpportunityResponse:
-    stocks = [s for s in scores if s.asset_type != "etf"]
-    etfs = [s for s in scores if s.asset_type == "etf"]
-
-    if asset_type == "stocks":
-        scores = stocks[:top_n]
-    elif asset_type == "etfs":
-        scores = etfs[:top_n]
+    if asset_type == "etfs":
+        scores = [s for s in scores if s.asset_type == "etf"][:top_n]
     else:
-        scores = _interleave(stocks, etfs, top_n)
+        scores = [s for s in scores if s.asset_type != "etf"][:top_n]
+
+    _enrich_with_prices(scores)
 
     return OpportunityResponse(
         date=datetime.now(timezone.utc).date().isoformat(),
@@ -61,7 +44,7 @@ def _respond(scores: list[OpportunityScore], asset_type: str, top_n: int) -> Opp
 
 
 @router.get("")
-def get_opportunities(strategy_type: str = "all", top_n: int = 20, min_score: float = 0.0, asset_type: str = "all"):
+def get_opportunities(strategy_type: str = "all", top_n: int = 20, min_score: float = 0.0, asset_type: str = "stocks"):
     logger.info("Fetching opportunities: strategy=%s top_n=%d min_score=%.1f asset=%s",
                 strategy_type, top_n, min_score, asset_type)
     try:
@@ -78,8 +61,6 @@ def get_opportunities(strategy_type: str = "all", top_n: int = 20, min_score: fl
     if not scores:
         logger.info("No opportunities found — pipeline may still be running")
 
-    _enrich_with_prices(scores)
-
     tickers_returned = [s.ticker for s in scores]
     logger.info("Returning %d opportunities (stocks=%d etfs=%d scores=%.1f-%.1f). Top: %s",
                 len(scores), len([s for s in scores if s.asset_type != "etf"]),
@@ -91,7 +72,7 @@ def get_opportunities(strategy_type: str = "all", top_n: int = 20, min_score: fl
 
 
 @router.get("/{strategy_type}")
-def get_opportunities_by_strategy(strategy_type: str, top_n: int = 20, asset_type: str = "all"):
+def get_opportunities_by_strategy(strategy_type: str, top_n: int = 20, asset_type: str = "stocks"):
     try:
         signals = _load_todays_signals()
         scores = build_opportunity_scores(signals)
@@ -104,8 +85,6 @@ def get_opportunities_by_strategy(strategy_type: str, top_n: int = 20, asset_typ
 
     if not scores:
         logger.info("No opportunities found — pipeline may still be running")
-
-    _enrich_with_prices(scores)
 
     return _respond(scores, asset_type, top_n)
 
