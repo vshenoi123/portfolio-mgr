@@ -71,8 +71,8 @@ class ReportService:
                     sections = [ReportSection(title="AI Analysis", content=content)]
                     break
                 except Exception as e:
-                    err_str = str(e)
-                    if "429" in err_str or "quota" in err_str.lower():
+                    err_str = str(e).lower()
+                    if "429" in err_str and "retry" in err_str:
                         delay = RETRY_DELAY * (attempt + 1)
                         logger.warning("Rate limited (attempt %d/%d), retrying in %ds: %s",
                                        attempt + 1, MAX_RETRIES, delay, err_str[:120])
@@ -81,7 +81,7 @@ class ReportService:
                         sections = [ReportSection(title="AI Analysis", content=f"Report generation unavailable: {e}", priority="low")]
                         break
             else:
-                sections = [ReportSection(title="AI Analysis", content="Report generation unavailable: LLM rate limit exceeded after retries.", priority="low")]
+                sections = [ReportSection(title="AI Analysis", content="Report generation unavailable: daily LLM quota exceeded. Try again tomorrow or use a different API key.", priority="low")]
         else:
             sections = [ReportSection(title="AI Analysis", content="AI provider not configured. Set OPENAI_API_KEY, GOOGLE_API_KEY, or OLLAMA_BASE_URL.", priority="low")]
 

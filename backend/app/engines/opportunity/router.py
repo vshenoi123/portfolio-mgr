@@ -28,12 +28,15 @@ def _enrich_with_prices(scores: list[OpportunityScore]) -> None:
         logger.warning("Failed to enrich with live prices: %s", e)
 
 
-def _respond(scores: list[OpportunityScore], asset_type: str, top_n: int) -> OpportunityResponse:
+def _respond(scores: list[OpportunityScore], asset_type: str, top_n: int,
+             min_market_cap: float = 0) -> OpportunityResponse:
     if asset_type == "etfs":
-        scores = [s for s in scores if s.asset_type == "etf"][:top_n]
+        scores = [s for s in scores if s.asset_type == "etf"]
     else:
-        scores = [s for s in scores if s.asset_type != "etf"][:top_n]
-
+        scores = [s for s in scores if s.asset_type != "etf"]
+    if min_market_cap > 0:
+        scores = [s for s in scores if (s.market_cap or 0) >= min_market_cap]
+    scores = scores[:top_n]
     _enrich_with_prices(scores)
 
     return OpportunityResponse(
@@ -44,7 +47,8 @@ def _respond(scores: list[OpportunityScore], asset_type: str, top_n: int) -> Opp
 
 
 @router.get("")
-def get_opportunities(strategy_type: str = "all", top_n: int = 20, min_score: float = 0.0, asset_type: str = "stocks"):
+def get_opportunities(strategy_type: str = "all", top_n: int = 20, min_score: float = 15.0,
+                      asset_type: str = "stocks", min_market_cap: float = 500_000_000):
     logger.info("Fetching opportunities: strategy=%s top_n=%d min_score=%.1f asset=%s",
                 strategy_type, top_n, min_score, asset_type)
     try:
@@ -68,11 +72,12 @@ def get_opportunities(strategy_type: str = "all", top_n: int = 20, min_score: fl
                 scores[-1].total_score if scores else 0,
                 scores[0].total_score if scores else 0,
                 tickers_returned[:10] if tickers_returned else [])
-    return _respond(scores, asset_type, top_n)
+    return _respond(scores, asset_type, top_n, min_market_cap)
 
 
 @router.get("/{strategy_type}")
-def get_opportunities_by_strategy(strategy_type: str, top_n: int = 20, asset_type: str = "stocks"):
+def get_opportunities_by_strategy(strategy_type: str, top_n: int = 20, asset_type: str = "stocks",
+                                  min_score: float = 15.0, min_market_cap: float = 500_000_000):
     try:
         signals = _load_todays_signals()
         scores = build_opportunity_scores(signals)
@@ -81,12 +86,12 @@ def get_opportunities_by_strategy(strategy_type: str, top_n: int = 20, asset_typ
         scores = []
 
     scores = filter_by_strategy(scores, strategy_type)
-    scores = rank_opportunities(scores, top_n=None)
+    scores = rank_opportunities(scores, top_n=None, min_score=min_score)
 
     if not scores:
         logger.info("No opportunities found — pipeline may still be running")
 
-    return _respond(scores, asset_type, top_n)
+    return _respond(scores, asset_type, top_n, min_market_cap)
 
 
 @router.post("/compute", status_code=202)
