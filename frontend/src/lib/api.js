@@ -38,3 +38,13 @@ export function getTickerDetails(tickers) {
   const tickersParam = Array.isArray(tickers) ? tickers.join(',') : tickers;
   return fetchApi(`/data/ticker-details?tickers=${tickersParam}`);
 }
+
+export function generateTrade(ticker, dte = 30, targetDelta = 0.30) {
+  return fetchApi(`/trading/generate/${ticker}?dte=${dte}&target_delta=${targetDelta}`);
+}
+
+export function executeTrade(ticker, dte = 30, targetDelta = 0.30, quantity = 1) {
+  return fetchApi(`/trading/execute/${ticker}?dte=${dte}&target_delta=${targetDelta}&quantity=${quantity}`, { method: 'POST' });
+}
+
+export function getOpenOrders() { return fetchApi('/trading/orders?status=open'); }

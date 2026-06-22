@@ -104,3 +104,58 @@ def sync_positions(
 ):
     logger.info("Syncing positions from Alpaca (API key configured: %s)", bool(settings.alpaca_api_key))
     return client.sync_positions()
+
+
+@router.get("/generate/{ticker}")
+def generate_trade_endpoint(
+    ticker: str,
+    dte: int = 30,
+    target_delta: float = 0.30,
+):
+    from app.engines.trading.generate import generate_trade
+    result = generate_trade(ticker.upper(), dte=dte, target_delta=target_delta)
+    return result
+
+
+@router.post("/execute/{ticker}")
+def execute_trade(
+    ticker: str,
+    dte: int = 30,
+    target_delta: float = 0.30,
+    quantity: float = 1,
+    client: AlpacaClient = Depends(get_client),
+    _=Depends(verify_api_key),
+):
+    from app.engines.trading.generate import generate_trade
+    result = generate_trade(ticker.upper(), dte=dte, target_delta=target_delta)
+    if not result.get("trade"):
+        return TradeResult(success=False, message=result.get("message", "No trade generated"))
+
+    trade = result["trade"]
+    strategy = trade.get("strategy", "csp")
+
+    if strategy == "csp":
+        order = OrderRequest(
+            ticker=ticker.upper(), side="sell", order_type="limit",
+            quantity=quantity, price=trade["strike"],
+            time_in_force="gtc", strategy_type="csp",
+            notes=f"CSP {trade['strike']} {trade['days_to_expiration']}DTE premium={trade['premium']}",
+        )
+    elif strategy == "leaps":
+        order = OrderRequest(
+            ticker=ticker.upper(), side="buy", order_type="limit",
+            quantity=quantity, price=trade["ask"],
+            time_in_force="gtc", strategy_type="leaps",
+            notes=f"LEAPS {trade['strike']} {trade['days_to_expiration']}DTE premium={trade['premium']}",
+        )
+    elif strategy == "covered_call":
+        order = OrderRequest(
+            ticker=ticker.upper(), side="sell", order_type="limit",
+            quantity=quantity, price=trade["strike"],
+            time_in_force="gtc", strategy_type="covered_call",
+            notes=f"CC {trade['strike']} {trade['days_to_expiration']}DTE premium={trade['premium']}",
+        )
+    else:
+        return TradeResult(success=False, message=f"Execution not supported for {strategy}")
+
+    return client.place_order(order)
