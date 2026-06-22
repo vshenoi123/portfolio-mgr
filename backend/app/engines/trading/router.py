@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends
 
 from app.core.dependencies import verify_api_key
+from app.config import settings
 from app.engines.trading.schemas import CancelRequest, ModifyRequest, OrderRequest, OrderResponse, TradeResult
 from app.engines.trading.service import AlpacaClient
 
@@ -101,4 +102,5 @@ def sync_positions(
     client: AlpacaClient = Depends(get_client),
     _=Depends(verify_api_key),
 ):
+    logger.info("Syncing positions from Alpaca (API key configured: %s)", bool(settings.alpaca_api_key))
     return client.sync_positions()

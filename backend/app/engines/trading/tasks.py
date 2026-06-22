@@ -8,11 +8,14 @@ logger = logging.getLogger(__name__)
 @shared_task(bind=True, max_retries=2, default_retry_delay=60)
 def sync_positions(self) -> dict:
     try:
+        logger.info("Starting position sync from Alpaca")
         from app.engines.trading.service import AlpacaClient
         client = AlpacaClient()
         if not client.enabled:
+            logger.warning("Alpaca API not configured, skipping sync")
             return {"status": "skipped", "message": "Alpaca API not configured"}
         result = client.sync_positions()
+        logger.info("Position sync result: success=%s message=%s", result.success, result.message)
         return {
             "status": "success" if result.success else "error",
             "message": result.message,

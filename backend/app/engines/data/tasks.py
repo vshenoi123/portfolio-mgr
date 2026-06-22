@@ -7,12 +7,15 @@ logger = logging.getLogger(__name__)
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def refresh_ticker_data(self, ticker: str, days: int = 365) -> dict:
+    logger.info("Starting refresh for %s (days=%d)", ticker, days)
     service = PolygonDataService()
     try:
         bars = service.fetch_ohlcv(ticker, days=days)
         if bars:
             service.save_ohlcv(bars)
-        logger.info("Refreshed %s: %d bars", ticker, len(bars))
+            logger.info("Refreshed %s: %d bars fetched and saved", ticker, len(bars))
+        else:
+            logger.warning("No bars returned for %s", ticker)
         return {
             "ticker": ticker,
             "status": "success",
@@ -30,8 +33,11 @@ def refresh_ticker_data(self, ticker: str, days: int = 365) -> dict:
 @shared_task
 def refresh_all_data(days: int = 365) -> list[dict]:
     from app.models.universe import DEFAULT_UNIVERSE
+    logger.info("Starting refresh for ALL %d tickers: %s", len(DEFAULT_UNIVERSE), DEFAULT_UNIVERSE)
     results = []
-    for ticker in DEFAULT_UNIVERSE:
+    for i, ticker in enumerate(DEFAULT_UNIVERSE):
+        logger.info("Dispatching refresh %d/%d: %s", i + 1, len(DEFAULT_UNIVERSE), ticker)
         result = refresh_ticker_data.delay(ticker, days=days)
         results.append(result)
+    logger.info("All %d ticker refresh tasks dispatched", len(DEFAULT_UNIVERSE))
     return results

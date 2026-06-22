@@ -299,7 +299,13 @@ class AlpacaClient:
 
     def sync_positions(self) -> TradeResult:
         def _sync() -> TradeResult:
+            logger.info("Syncing positions from Alpaca...")
             positions = self._client.get_all_positions()
+            logger.info("Found %d positions on Alpaca", len(positions))
+            for pos in positions:
+                logger.info("  Position: %s qty=%s avg_entry=$%s current=$%s market_value=$%s pl=$%s",
+                    pos.symbol, pos.qty, pos.avg_entry_price, pos.current_price,
+                    pos.market_value, pos.unrealized_pl)
             conn = self._get_connection()
             try:
                 conn.execute("DELETE FROM positions")
@@ -325,6 +331,7 @@ class AlpacaClient:
                             float(pos.unrealized_plpc or 0),
                         ),
                     )
+                logger.info("Synced %d positions to DuckDB", len(positions))
                 return TradeResult(
                     success=True,
                     message=f"Synced {len(positions)} positions",

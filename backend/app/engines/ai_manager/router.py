@@ -10,15 +10,19 @@ router = APIRouter(prefix="/api/v1/ai", tags=["ai"])
 
 @router.post("/report")
 def generate_report(req: DailyReportRequest):
+    logger.info("Generating daily report (date=%s)", req.report_date)
     service = ReportService()
     report = service.generate_daily_report(report_date=req.report_date)
+    logger.info("Report generated: %d sections, summary=%d chars", len(report.sections), len(report.summary))
     return report.model_dump()
 
 
 @router.get("/report")
 def get_report():
+    logger.info("Generating daily report (auto date)")
     service = ReportService()
     report = service.generate_daily_report()
+    logger.info("Report generated: %d sections, summary=%d chars", len(report.sections), len(report.summary))
     return report.model_dump()
 
 

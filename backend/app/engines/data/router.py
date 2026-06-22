@@ -56,6 +56,7 @@ def refresh_ticker(
     _=Depends(verify_api_key),
 ):
     from app.core.celery_helpers import dispatch_task
+    logger.info("Refreshing ticker: %s (days=%d)", ticker.upper(), days)
     result = dispatch_task(refresh_ticker_data, ticker, days=days)
     result["ticker"] = ticker.upper()
     return result
@@ -65,8 +66,11 @@ def refresh_ticker(
 def refresh_all(_=Depends(verify_api_key)):
     from app.engines.data.tasks import refresh_all_data
     from app.core.celery_helpers import dispatch_task
+    from app.models.universe import DEFAULT_UNIVERSE
+    logger.info("Refreshing ALL tickers (%d total): %s", len(DEFAULT_UNIVERSE), DEFAULT_UNIVERSE[:10])
     result = dispatch_task(refresh_all_data)
     result["message"] = "Refreshing all tickers"
+    result["tickers"] = DEFAULT_UNIVERSE
     return result
 
 
