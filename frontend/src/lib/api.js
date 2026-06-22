@@ -16,8 +16,8 @@ export function getPortfolioHealth() { return fetchApi('/portfolio/health'); }
 export function getPortfolioExposure() { return fetchApi('/portfolio/exposure'); }
 export function getPortfolioAllocation() { return fetchApi('/portfolio/allocation'); }
 
-export function getOpportunities(strategyType = 'all', topN = 20) {
-  const params = new URLSearchParams({ strategy_type: strategyType, top_n: topN });
+export function getOpportunities(strategyType = 'all', topN = 20, assetType = 'all') {
+  const params = new URLSearchParams({ strategy_type: strategyType, top_n: topN, asset_type: assetType });
   return fetchApi(`/opportunities?${params}`);
 }
 

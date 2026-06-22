@@ -66,11 +66,11 @@ export default function OpportunitiesPage() {
   const tickers = opps.map((o) => o.ticker);
   const { details } = useTickerDetails(tickers);
 
-  const fetchData = async (strategyType = 'all') => {
+  const fetchData = async (strategyType = 'all', assetType = 'all') => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getOpportunities(strategyType, 50);
+      const data = await getOpportunities(strategyType, 50, assetType);
       setOpps(data.opportunities || []);
     } catch (e) {
       setError(e.message);
@@ -79,15 +79,9 @@ export default function OpportunitiesPage() {
     }
   };
 
-  useEffect(() => { fetchData(filter); }, [filter]);
+  useEffect(() => { fetchData(filter, assetFilter); }, [filter, assetFilter]);
 
-  const handleRefresh = () => fetchData(filter);
-
-  const filteredOpps = opps.filter((opp) => {
-    if (assetFilter === 'etfs') return (details[opp.ticker] || {}).type === 'etf';
-    if (assetFilter === 'stocks') return (details[opp.ticker] || {}).type !== 'etf';
-    return true;
-  });
+  const handleRefresh = () => fetchData(filter, assetFilter);
 
   const stockCount = opps.filter((o) => (details[o.ticker] || {}).type !== 'etf').length;
   const etfCount = opps.filter((o) => (details[o.ticker] || {}).type === 'etf').length;
@@ -157,7 +151,7 @@ export default function OpportunitiesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {filteredOpps.map((opp, i) => {
+          {opps.map((opp, i) => {
             const info = details[opp.ticker] || {};
             const detailTags = [
               info.last_price ? `$${info.last_price.toFixed(2)}` : null,
@@ -201,7 +195,7 @@ export default function OpportunitiesPage() {
         </div>
       )}
 
-      {!loading && !error && filteredOpps.length === 0 && (
+      {!loading && !error && opps.length === 0 && (
         <div className="text-center py-12">
           <p className="text-terminal-text-muted font-sans">No {assetFilter === 'all' ? '' : assetFilter + ' '}opportunities found for <span className="font-mono text-terminal-text">{filter}</span></p>
         </div>
