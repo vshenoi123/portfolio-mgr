@@ -74,13 +74,14 @@ def _generate_synthetic_signals() -> list[dict]:
     import numpy as np
     from app.models.universe import get_universe
     rng = np.random.default_rng(42)
+    # Use default universe to avoid Polygon API dependency for fallback data
     return [{"ticker": t, "regime_score": float(rng.uniform(20, 95)),
         "breakout_score": float(rng.uniform(10, 90)),
         "relative_strength_score": float(rng.uniform(15, 95)),
         "cusum_score": float(rng.uniform(10, 80)),
         "volume_score": float(rng.uniform(20, 85)),
         "trend_score": float(rng.uniform(25, 90))}
-        for t in get_universe()]
+        for t in get_universe(use_api=False)]
 
 
 def _save_opportunities(scores: list) -> str:

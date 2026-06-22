@@ -62,11 +62,11 @@ def fetch_universe_from_polygon(
 def get_universe(use_api: bool = True) -> list[str]:
     """Get ticker universe. Fetches from API (cached) with fallback to default."""
     global _cached_universe
+    if not use_api:
+        return DEFAULT_UNIVERSE
     if _cached_universe:
         return _cached_universe
-    if use_api:
-        return fetch_universe_from_polygon()
-    return DEFAULT_UNIVERSE
+    return fetch_universe_from_polygon()
 
 
 class UniverseEntry(BaseModel):
