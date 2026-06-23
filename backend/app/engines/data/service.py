@@ -72,7 +72,7 @@ class PolygonDataService:
         parquet_dir = self._ensure_parquet_dir(ticker, "ohlcv")
         parquet_path = os.path.join(parquet_dir, f"{ticker.lower()}.parquet")
         if os.path.exists(parquet_path):
-            existing = pd.read_parquet(parquet_path)
+            existing = pd.read_parquet(parquet_path).dropna(how="all", axis=1)
             df = pd.concat([existing, df], ignore_index=True)
             df = df.drop_duplicates(subset=["ticker", "timestamp"]).sort_values("timestamp").reset_index(drop=True)
         df.to_parquet(parquet_path, index=False)
