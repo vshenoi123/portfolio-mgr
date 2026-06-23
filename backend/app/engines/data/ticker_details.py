@@ -59,7 +59,7 @@ def _fetch_live_prices(tickers: list[str]) -> dict[str, float]:
         resp = requests.get(
             "https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers",
             params={"apiKey": settings.polygon_api_key},
-            timeout=30,
+            timeout=5,
         )
         if resp.status_code != 200:
             logger.warning("Bulk snapshot API returned %d", resp.status_code)

@@ -16,7 +16,10 @@ router = APIRouter(prefix="/api/v1/opportunities", tags=["opportunities"])
 
 
 def _enrich_with_prices(scores: list[OpportunityScore]) -> None:
-    """Fetch live prices for the given scores and attach last_price in-place."""
+    """Fetch live prices for the given scores and attach last_price in-place. Skips if market closed."""
+    from app.engines.trading.generate import _is_market_open
+    if not _is_market_open():
+        return
     tickers = [s.ticker for s in scores]
     if not tickers:
         return
