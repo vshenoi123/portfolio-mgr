@@ -16,7 +16,6 @@ router = APIRouter(prefix="/api/v1/opportunities", tags=["opportunities"])
 
 
 def _enrich_with_prices(scores: list[OpportunityScore]) -> None:
-    """Fetch live prices for the given scores and attach last_price in-place. Skips if market closed."""
     from app.engines.trading.generate import _is_market_open
     if not _is_market_open():
         return
@@ -33,7 +32,7 @@ def _enrich_with_prices(scores: list[OpportunityScore]) -> None:
         logger.warning("Failed to enrich with live prices: %s", e)
 
 
-def _respond_grouped(scores: list[OpportunityScore], asset_type: str, top_n: int,
+def _respond_grouped(scores: list[OpportunityScore], asset_type: str,
                      min_market_cap: float = 2_000_000_000) -> GroupedOpportunityResponse:
     if asset_type == "etfs":
         scores = [s for s in scores if s.asset_type == "etf"]
@@ -50,12 +49,14 @@ def _respond_grouped(scores: list[OpportunityScore], asset_type: str, top_n: int
             sec = s.sector or "Other"
             groups.setdefault(sec, []).append(s)
 
+    limit = 25 if asset_type == "etfs" else 5
+
     sector_groups: list[SectorGroup] = []
     all_enriched: list[OpportunityScore] = []
     for sector in sorted(groups.keys(), key=lambda s: (sector_sort_key(s), s)):
         group_opps = groups[sector]
         group_opps.sort(key=lambda o: o.total_score, reverse=True)
-        taken = group_opps[:top_n]
+        taken = group_opps[:limit]
         sector_groups.append(SectorGroup(sector=sector, count=len(taken), opportunities=taken))
         all_enriched.extend(taken)
 
@@ -69,10 +70,10 @@ def _respond_grouped(scores: list[OpportunityScore], asset_type: str, top_n: int
 
 
 @router.get("", response_model=GroupedOpportunityResponse)
-def get_opportunities(strategy_type: str = "all", top_n: int = 20, min_score: float = 10.0,
+def get_opportunities(strategy_type: str = "all", min_score: float = 10.0,
                       asset_type: str = "stocks", min_market_cap: float = 2_000_000_000):
-    logger.info("Fetching opportunities: strategy=%s top_n=%d min_score=%.1f asset=%s",
-                strategy_type, top_n, min_score, asset_type)
+    logger.info("Fetching opportunities: strategy=%s min_score=%.1f asset=%s",
+                strategy_type, min_score, asset_type)
     try:
         signals = _load_todays_signals()
         logger.info("Loaded %d signals for scoring", len(signals))
@@ -94,11 +95,11 @@ def get_opportunities(strategy_type: str = "all", top_n: int = 20, min_score: fl
                 scores[-1].total_score if scores else 0,
                 scores[0].total_score if scores else 0,
                 tickers_returned[:10] if tickers_returned else [])
-    return _respond_grouped(scores, asset_type, top_n, min_market_cap)
+    return _respond_grouped(scores, asset_type, min_market_cap)
 
 
 @router.get("/{strategy_type}", response_model=GroupedOpportunityResponse)
-def get_opportunities_by_strategy(strategy_type: str, top_n: int = 20, asset_type: str = "stocks",
+def get_opportunities_by_strategy(strategy_type: str, asset_type: str = "stocks",
                                   min_score: float = 10.0, min_market_cap: float = 2_000_000_000):
     try:
         signals = _load_todays_signals()
@@ -113,7 +114,7 @@ def get_opportunities_by_strategy(strategy_type: str, top_n: int = 20, asset_typ
     if not scores:
         logger.info("No opportunities found — pipeline may still be running")
 
-    return _respond_grouped(scores, asset_type, top_n, min_market_cap)
+    return _respond_grouped(scores, asset_type, min_market_cap)
 
 
 @router.post("/compute", status_code=202)

@@ -10,7 +10,12 @@ def get_connection(db_path: str | None = None) -> duckdb.DuckDBPyConnection:
         db_path = settings.database_path
 
     if db_path in _connections:
-        return _connections[db_path]
+        conn = _connections[db_path]
+        try:
+            conn.execute("SELECT 1")
+            return conn
+        except Exception:
+            del _connections[db_path]
 
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     conn = duckdb.connect(db_path)

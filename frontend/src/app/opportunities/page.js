@@ -11,14 +11,6 @@ import { isMarketOpen } from '@/lib/marketHours';
 const STRATEGIES = ['all', 'swing', 'csp', 'leaps', 'pmcc'];
 const ASSET_TYPES = ['stocks', 'etfs'];
 
-const METRIC_LABELS = {
-  Regime: 'R',
-  Breakout: 'B',
-  Trend: 'T',
-  Volume: 'V',
-  'Rel.Strength': 'RS',
-};
-
 function formatMarketCap(mc) {
   if (!mc) return '';
   if (mc >= 1e12) return `$${(mc / 1e12).toFixed(1)}T`;
@@ -64,28 +56,24 @@ function ScoreExplanations() {
   );
 }
 
-function SectorSection({ sector, count, children, defaultOpen }) {
-  const [open, setOpen] = useState(defaultOpen);
-
+function SectorSection({ sector, count, isOpen, onToggle, children }) {
   return (
     <div className="bg-terminal-bg-card border border-terminal-border rounded-xl overflow-hidden">
       <button
-        onClick={() => setOpen(!open)}
+        onClick={onToggle}
         className="w-full flex items-center justify-between px-5 py-3 hover:bg-terminal-bg-light transition-colors"
       >
         <div className="flex items-center gap-3">
-          {open ? <ChevronDown size={16} className="text-terminal-text-muted" /> : <ChevronRight size={16} className="text-terminal-text-muted" />}
+          {isOpen ? <ChevronDown size={16} className="text-terminal-text-muted" /> : <ChevronRight size={16} className="text-terminal-text-muted" />}
           <h3 className="text-sm font-sans font-semibold text-terminal-text">{sector}</h3>
           <span className="px-2 py-0.5 text-xs font-mono rounded bg-terminal-bg-light text-terminal-text-muted border border-terminal-border">
             {count}
           </span>
         </div>
       </button>
-      {open && (
-        <div className="px-5 pb-4 overflow-x-auto">
-          <div className="flex gap-4" style={{ minWidth: 'max-content' }}>
-            {children}
-          </div>
+      {isOpen && (
+        <div className="px-5 pb-4 space-y-3">
+          {children}
         </div>
       )}
     </div>
@@ -99,6 +87,7 @@ export default function OpportunitiesPage() {
   const [error, setError] = useState(null);
   const [groups, setGroups] = useState([]);
   const [tradeTicker, setTradeTicker] = useState(null);
+  const [openSector, setOpenSector] = useState(null);
 
   const cacheKey = `${filter}_${assetFilter}`;
 
@@ -113,7 +102,7 @@ export default function OpportunitiesPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getOpportunities(strategyType, 50, assetType);
+      const data = await getOpportunities(strategyType, 5, assetType);
       setCachedOpportunities(cacheKey, data);
       setGroups(data.groups || []);
     } catch (e) {
@@ -201,53 +190,55 @@ export default function OpportunitiesPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {/* Score legend for compact view */}
-          <p className="text-xs font-mono text-terminal-text-muted">
-            Score legend: <span className="text-terminal-text">R</span>=Regime <span className="text-terminal-text">B</span>=Breakout{' '}
-            <span className="text-terminal-text">T</span>=Trend <span className="text-terminal-text">V</span>=Volume{' '}
-            <span className="text-terminal-text">RS</span>=Rel.Strength
-          </p>
+          {groups.map((group) => {
+            const isOpen = openSector === group.sector;
+            return (
+              <SectorSection
+                key={group.sector}
+                sector={group.sector}
+                count={group.count}
+                isOpen={isOpen}
+                onToggle={() => setOpenSector(isOpen ? null : group.sector)}
+              >
+                {group.opportunities.map((opp) => {
+                  const detailTags = [
+                    opp.last_price ? `$${opp.last_price.toFixed(2)}` : null,
+                    opp.exchange,
+                    opp.asset_type === 'etf' ? 'ETF' : null,
+                    formatMarketCap(opp.market_cap),
+                  ].filter(Boolean);
 
-          {groups.map((group, idx) => (
-            <SectorSection key={group.sector} sector={group.sector} count={group.count} defaultOpen={idx < 3}>
-              {group.opportunities.map((opp) => {
-                const detailTags = [
-                  opp.last_price ? `$${opp.last_price.toFixed(2)}` : null,
-                  opp.exchange,
-                  opp.asset_type === 'etf' ? 'ETF' : null,
-                  formatMarketCap(opp.market_cap),
-                ].filter(Boolean);
-
-                return (
-                  <StrategyCard
-                    key={opp.ticker}
-                    compact
-                    title={opp.ticker}
-                    details={detailTags}
-                    score={opp.total_score}
-                    strategy={opp.strategy_type}
-                    metrics={{
-                      Score: opp.total_score?.toFixed(1),
-                      Regime: opp.regime_score?.toFixed(1),
-                      Breakout: opp.breakout_score?.toFixed(1),
-                      Trend: opp.trend_score?.toFixed(1),
-                      Volume: opp.volume_score?.toFixed(1),
-                      'Rel.Strength': opp.relative_strength_score?.toFixed(1),
-                    }}
-                  >
-                    <button
-                      onClick={() => setTradeTicker(opp.ticker)}
-                      disabled={!isMarketOpen()}
-                      className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] font-mono font-semibold text-black bg-terminal-green rounded-lg hover:bg-terminal-green-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  return (
+                    <StrategyCard
+                      key={opp.ticker}
+                      title={opp.ticker}
+                      subtitle={opp.name}
+                      details={detailTags}
+                      score={opp.total_score}
+                      strategy={opp.strategy_type}
+                      metrics={{
+                        Score: opp.total_score?.toFixed(1),
+                        Regime: opp.regime_score?.toFixed(1),
+                        Breakout: opp.breakout_score?.toFixed(1),
+                        Trend: opp.trend_score?.toFixed(1),
+                        Volume: opp.volume_score?.toFixed(1),
+                        'Rel.Strength': opp.relative_strength_score?.toFixed(1),
+                      }}
                     >
-                      {isMarketOpen() ? <Zap size={12} /> : <Clock size={12} />}
-                      {isMarketOpen() ? 'Generate Trade' : 'Market Closed'}
-                    </button>
-                  </StrategyCard>
-                );
-              })}
-            </SectorSection>
-          ))}
+                      <button
+                        onClick={() => setTradeTicker(opp.ticker)}
+                        disabled={!isMarketOpen()}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-mono font-semibold text-black bg-terminal-green rounded-lg hover:bg-terminal-green-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {isMarketOpen() ? <Zap size={14} /> : <Clock size={14} />}
+                        {isMarketOpen() ? 'Generate Trade' : 'Market Closed'}
+                      </button>
+                    </StrategyCard>
+                  );
+                })}
+              </SectorSection>
+            );
+          })}
         </div>
       )}
 
