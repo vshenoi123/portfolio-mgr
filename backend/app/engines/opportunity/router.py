@@ -44,7 +44,7 @@ def _respond_grouped(scores: list[OpportunityScore], asset_type: str, top_n: int
 
     groups: OrderedDict[str, list[OpportunityScore]] = OrderedDict()
     if asset_type == "etfs":
-        groups["ETF"] = []
+        groups["ETF"] = list(scores)
     else:
         for s in scores:
             sec = s.sector or "Other"

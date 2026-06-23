@@ -148,6 +148,8 @@ def refresh_all_data(self, days: int = 365) -> dict:
 def refresh_ticker_details_task() -> dict:
     from app.engines.data.ticker_details import refresh_ticker_details
     count = refresh_ticker_details()
+    if count == 0:
+        raise RuntimeError("refresh_ticker_details returned 0 — all Polygon API calls failed")
     return {"status": "success", "count": count}
 
 
