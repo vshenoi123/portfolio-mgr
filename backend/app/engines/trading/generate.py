@@ -128,12 +128,18 @@ def generate_trade(ticker: str, dte: int = 30, target_delta: float = 0.30) -> di
 
     option_strategy = STRATEGY_MAP.get(recommendation)
     if not option_strategy or recommendation in ("close", "roll", "hold", "avoid"):
-        return {
-            "ticker": ticker,
-            "strategy_output": strategy_output.model_dump(),
-            "trade": None,
-            "message": f"Recommendation is '{recommendation}' — no trade to generate",
-        }
+        rule_scores = strategy_output.details.get("rule_scores", {})
+        actionable = {k: v for k, v in rule_scores.items() if k in STRATEGY_MAP}
+        if actionable:
+            recommendation = max(actionable, key=actionable.get)
+            option_strategy = STRATEGY_MAP[recommendation]
+        else:
+            return {
+                "ticker": ticker,
+                "strategy_output": strategy_output.model_dump(),
+                "trade": None,
+                "message": f"Recommendation is '{recommendation}' — no actionable strategy available",
+            }
 
     underlying_price = context["underlying_price"]
 
