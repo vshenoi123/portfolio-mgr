@@ -180,12 +180,13 @@ def build_market_scan() -> str:
 
     details_path = os.path.join(data_dir, "cache", "ticker_details.parquet")
     if os.path.exists(details_path):
-        meta_df = pd.read_parquet(details_path)[["ticker", "name", "exchange", "type", "market_cap"]]
+        meta_df = pd.read_parquet(details_path)[["ticker", "name", "exchange", "type", "market_cap", "sic_code"]]
         signals_df = signals_df.merge(meta_df, on="ticker", how="left")
         signals_df["name"] = signals_df["name"].fillna("")
         signals_df["exchange"] = signals_df["exchange"].fillna("")
         signals_df["type"] = signals_df["type"].fillna("stock")
         signals_df["market_cap"] = signals_df["market_cap"].fillna(0).astype(float)
+        signals_df["sic_code"] = signals_df["sic_code"].fillna(0).astype(int)
 
     signals_df = _clean_scores(signals_df)
 

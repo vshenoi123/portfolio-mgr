@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Filter, RefreshCw, Zap, Clock } from 'lucide-react';
+import { Filter, RefreshCw, Zap, Clock, ChevronDown, ChevronRight } from 'lucide-react';
 import StrategyCard from '@/components/shared/StrategyCard';
 import TradeGenerationModal from '@/components/shared/TradeGenerationModal';
 import { getOpportunities } from '@/lib/api';
@@ -10,6 +10,14 @@ import { isMarketOpen } from '@/lib/marketHours';
 
 const STRATEGIES = ['all', 'swing', 'csp', 'leaps', 'pmcc'];
 const ASSET_TYPES = ['stocks', 'etfs'];
+
+const METRIC_LABELS = {
+  Regime: 'R',
+  Breakout: 'B',
+  Trend: 'T',
+  Volume: 'V',
+  'Rel.Strength': 'RS',
+};
 
 function formatMarketCap(mc) {
   if (!mc) return '';
@@ -56,12 +64,40 @@ function ScoreExplanations() {
   );
 }
 
+function SectorSection({ sector, count, children, defaultOpen }) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div className="bg-terminal-bg-card border border-terminal-border rounded-xl overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between px-5 py-3 hover:bg-terminal-bg-light transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          {open ? <ChevronDown size={16} className="text-terminal-text-muted" /> : <ChevronRight size={16} className="text-terminal-text-muted" />}
+          <h3 className="text-sm font-sans font-semibold text-terminal-text">{sector}</h3>
+          <span className="px-2 py-0.5 text-xs font-mono rounded bg-terminal-bg-light text-terminal-text-muted border border-terminal-border">
+            {count}
+          </span>
+        </div>
+      </button>
+      {open && (
+        <div className="px-5 pb-4 overflow-x-auto">
+          <div className="flex gap-4" style={{ minWidth: 'max-content' }}>
+            {children}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function OpportunitiesPage() {
   const [filter, setFilter] = useState('all');
   const [assetFilter, setAssetFilter] = useState('stocks');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [opps, setOpps] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [tradeTicker, setTradeTicker] = useState(null);
 
   const cacheKey = `${filter}_${assetFilter}`;
@@ -69,7 +105,7 @@ export default function OpportunitiesPage() {
   const fetchData = async (strategyType = 'all', assetType = 'stocks', forceRefresh = false) => {
     const cached = getCachedOpportunities(cacheKey);
     if (cached && !forceRefresh) {
-      setOpps(cached.opportunities || []);
+      setGroups(cached.groups || []);
       setLoading(false);
       return;
     }
@@ -79,7 +115,7 @@ export default function OpportunitiesPage() {
     try {
       const data = await getOpportunities(strategyType, 50, assetType);
       setCachedOpportunities(cacheKey, data);
-      setOpps(data.opportunities || []);
+      setGroups(data.groups || []);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -93,6 +129,8 @@ export default function OpportunitiesPage() {
     clearOpportunitiesCache();
     fetchData(filter, assetFilter, true);
   };
+
+  const totalCards = groups.reduce((s, g) => s + g.count, 0);
 
   return (
     <div className="space-y-6 max-w-7xl">
@@ -152,60 +190,64 @@ export default function OpportunitiesPage() {
       )}
 
       {loading ? (
-        <div className="animate-pulse grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-48 bg-terminal-bg-card rounded-xl" />
+        <div className="animate-pulse space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 bg-terminal-bg-card rounded-xl" />
           ))}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {opps.map((opp, i) => {
-            const detailTags = [
-              opp.last_price ? `$${opp.last_price.toFixed(2)}` : null,
-              opp.exchange,
-              opp.asset_type === 'etf' ? 'ETF' : null,
-              formatMarketCap(opp.market_cap),
-            ].filter(Boolean);
-
-            return (
-              <div key={opp.ticker + i} className="relative">
-                <StrategyCard
-                  title={opp.ticker}
-                  subtitle={opp.name || ''}
-                  details={detailTags}
-                  score={opp.total_score}
-                  strategy={opp.strategy_type}
-                  metrics={{
-                    Score: opp.total_score?.toFixed(1),
-                    Regime: opp.regime_score?.toFixed(1),
-                    Breakout: opp.breakout_score?.toFixed(1),
-                    Trend: opp.trend_score?.toFixed(1),
-                    Volume: opp.volume_score?.toFixed(1),
-                  }}
-                >
-                  {opp.refined_score != null && (
-                    <p className="text-xs font-mono text-terminal-text-muted mt-2 pt-2 border-t border-terminal-border">
-                      ML Refined: <span className="text-terminal-green">{opp.refined_score.toFixed(1)}</span>
-                    </p>
-                  )}
-                  <button
-                    onClick={() => setTradeTicker(opp.ticker)}
-                    disabled={!isMarketOpen()}
-                    className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-mono font-semibold text-black bg-terminal-green rounded-lg hover:bg-terminal-green-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {isMarketOpen() ? <Zap size={14} /> : <Clock size={14} />}
-                    {isMarketOpen() ? 'Generate Trade' : 'Market Closed'}
-                  </button>
-                </StrategyCard>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {!loading && !error && opps.length === 0 && (
+      ) : !error && totalCards === 0 ? (
         <div className="text-center py-12">
           <p className="text-terminal-text-muted font-sans">No {assetFilter} opportunities found for <span className="font-mono text-terminal-text">{filter}</span></p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {/* Score legend for compact view */}
+          <p className="text-xs font-mono text-terminal-text-muted">
+            Score legend: <span className="text-terminal-text">R</span>=Regime <span className="text-terminal-text">B</span>=Breakout{' '}
+            <span className="text-terminal-text">T</span>=Trend <span className="text-terminal-text">V</span>=Volume{' '}
+            <span className="text-terminal-text">RS</span>=Rel.Strength
+          </p>
+
+          {groups.map((group, idx) => (
+            <SectorSection key={group.sector} sector={group.sector} count={group.count} defaultOpen={idx < 3}>
+              {group.opportunities.map((opp) => {
+                const detailTags = [
+                  opp.last_price ? `$${opp.last_price.toFixed(2)}` : null,
+                  opp.exchange,
+                  opp.asset_type === 'etf' ? 'ETF' : null,
+                  formatMarketCap(opp.market_cap),
+                ].filter(Boolean);
+
+                return (
+                  <StrategyCard
+                    key={opp.ticker}
+                    compact
+                    title={opp.ticker}
+                    details={detailTags}
+                    score={opp.total_score}
+                    strategy={opp.strategy_type}
+                    metrics={{
+                      Score: opp.total_score?.toFixed(1),
+                      Regime: opp.regime_score?.toFixed(1),
+                      Breakout: opp.breakout_score?.toFixed(1),
+                      Trend: opp.trend_score?.toFixed(1),
+                      Volume: opp.volume_score?.toFixed(1),
+                      'Rel.Strength': opp.relative_strength_score?.toFixed(1),
+                    }}
+                  >
+                    <button
+                      onClick={() => setTradeTicker(opp.ticker)}
+                      disabled={!isMarketOpen()}
+                      className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] font-mono font-semibold text-black bg-terminal-green rounded-lg hover:bg-terminal-green-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {isMarketOpen() ? <Zap size={12} /> : <Clock size={12} />}
+                      {isMarketOpen() ? 'Generate Trade' : 'Market Closed'}
+                    </button>
+                  </StrategyCard>
+                );
+              })}
+            </SectorSection>
+          ))}
         </div>
       )}
 

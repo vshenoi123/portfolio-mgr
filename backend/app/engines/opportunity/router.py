@@ -1,13 +1,15 @@
 import logging
 import traceback
+from collections import OrderedDict
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 
 from app.core.dependencies import verify_api_key
-from app.engines.opportunity.schemas import OpportunityResponse, OpportunityScore
+from app.engines.opportunity.schemas import GroupedOpportunityResponse, SectorGroup, OpportunityScore
 from app.engines.opportunity.service import build_opportunity_scores, rank_opportunities, filter_by_strategy
 from app.engines.opportunity.tasks import compute_opportunities as compute_opp_task, _load_todays_signals
+from app.engines.data.sic_sectors import sector_sort_key
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/opportunities", tags=["opportunities"])
@@ -28,25 +30,42 @@ def _enrich_with_prices(scores: list[OpportunityScore]) -> None:
         logger.warning("Failed to enrich with live prices: %s", e)
 
 
-def _respond(scores: list[OpportunityScore], asset_type: str, top_n: int,
-             min_market_cap: float = 2_000_000_000) -> OpportunityResponse:
+def _respond_grouped(scores: list[OpportunityScore], asset_type: str, top_n: int,
+                     min_market_cap: float = 2_000_000_000) -> GroupedOpportunityResponse:
     if asset_type == "etfs":
         scores = [s for s in scores if s.asset_type == "etf"]
     else:
         scores = [s for s in scores if s.asset_type != "etf"]
     if min_market_cap > 0:
         scores = [s for s in scores if not s.market_cap or s.market_cap >= min_market_cap]
-    scores = scores[:top_n]
-    _enrich_with_prices(scores)
 
-    return OpportunityResponse(
+    groups: OrderedDict[str, list[OpportunityScore]] = OrderedDict()
+    if asset_type == "etfs":
+        groups["ETF"] = []
+    else:
+        for s in scores:
+            sec = s.sector or "Other"
+            groups.setdefault(sec, []).append(s)
+
+    sector_groups: list[SectorGroup] = []
+    all_enriched: list[OpportunityScore] = []
+    for sector in sorted(groups.keys(), key=lambda s: (sector_sort_key(s), s)):
+        group_opps = groups[sector]
+        group_opps.sort(key=lambda o: o.total_score, reverse=True)
+        taken = group_opps[:top_n]
+        sector_groups.append(SectorGroup(sector=sector, count=len(taken), opportunities=taken))
+        all_enriched.extend(taken)
+
+    _enrich_with_prices(all_enriched)
+
+    return GroupedOpportunityResponse(
         date=datetime.now(timezone.utc).date().isoformat(),
-        opportunities=scores,
-        total_analyzed=len(scores),
+        groups=sector_groups,
+        total_analyzed=len(all_enriched),
     )
 
 
-@router.get("")
+@router.get("", response_model=GroupedOpportunityResponse)
 def get_opportunities(strategy_type: str = "all", top_n: int = 20, min_score: float = 10.0,
                       asset_type: str = "stocks", min_market_cap: float = 2_000_000_000):
     logger.info("Fetching opportunities: strategy=%s top_n=%d min_score=%.1f asset=%s",
@@ -72,10 +91,10 @@ def get_opportunities(strategy_type: str = "all", top_n: int = 20, min_score: fl
                 scores[-1].total_score if scores else 0,
                 scores[0].total_score if scores else 0,
                 tickers_returned[:10] if tickers_returned else [])
-    return _respond(scores, asset_type, top_n, min_market_cap)
+    return _respond_grouped(scores, asset_type, top_n, min_market_cap)
 
 
-@router.get("/{strategy_type}")
+@router.get("/{strategy_type}", response_model=GroupedOpportunityResponse)
 def get_opportunities_by_strategy(strategy_type: str, top_n: int = 20, asset_type: str = "stocks",
                                   min_score: float = 10.0, min_market_cap: float = 2_000_000_000):
     try:
@@ -91,7 +110,7 @@ def get_opportunities_by_strategy(strategy_type: str, top_n: int = 20, asset_typ
     if not scores:
         logger.info("No opportunities found — pipeline may still be running")
 
-    return _respond(scores, asset_type, top_n, min_market_cap)
+    return _respond_grouped(scores, asset_type, top_n, min_market_cap)
 
 
 @router.post("/compute", status_code=202)

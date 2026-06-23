@@ -20,6 +20,7 @@ class OpportunityScore(BaseModel):
     asset_type: str = "stock"
     market_cap: float = 0.0
     last_price: float | None = None
+    sector: str = ""
     details: dict = {}
 
     @field_validator("total_score", "regime_score", "breakout_score",
@@ -49,5 +50,18 @@ class OpportunityRequest(BaseModel):
 class OpportunityResponse(BaseModel):
     date: str
     opportunities: list[OpportunityScore] = []
+    total_analyzed: int = 0
+    engine_version: str = "0.1.0"
+
+
+class SectorGroup(BaseModel):
+    sector: str
+    count: int
+    opportunities: list[OpportunityScore] = []
+
+
+class GroupedOpportunityResponse(BaseModel):
+    date: str
+    groups: list[SectorGroup] = []
     total_analyzed: int = 0
     engine_version: str = "0.1.0"

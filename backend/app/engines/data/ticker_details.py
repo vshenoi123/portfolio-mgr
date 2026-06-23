@@ -100,6 +100,7 @@ def _fetch_ticker_details(ticker: str) -> tuple[str, dict | None]:
             "type": "etf" if raw_type == "ETF" else "stock",
             "exchange": EXCHANGE_NAMES.get(raw_exchange, raw_exchange),
             "market_cap": float(r["market_cap"]) if r.get("market_cap") else 0,
+            "sic_code": r.get("sic_code") or 0,
             "active": True,
         }
         return ticker, info

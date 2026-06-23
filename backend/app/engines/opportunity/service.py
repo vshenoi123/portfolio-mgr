@@ -1,4 +1,5 @@
 from app.engines.opportunity.schemas import OpportunityScore
+from app.engines.data.sic_sectors import sic_to_sector
 
 SCORE_WEIGHTS = {
     "regime": 0.25,
@@ -89,5 +90,6 @@ def build_opportunity_scores(signals: list[dict], model=None) -> list[Opportunit
             exchange=sig.get("exchange", ""),
             asset_type=sig.get("type", "stock"),
             market_cap=sig.get("market_cap", 0.0),
+            sector="ETF" if sig.get("type") == "etf" else sic_to_sector(sig.get("sic_code", 0)),
         ))
     return scores
