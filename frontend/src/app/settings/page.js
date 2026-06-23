@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { Save, Bell, Shield, DollarSign, RefreshCw, Play, RotateCcw, Activity, BarChart3, AlertTriangle, FileText } from 'lucide-react';
-import StatusDot from '@/components/shared/StatusDot';
+import { useState, useEffect } from 'react';
+import { Save, Play, RefreshCw, RotateCcw, Activity, BarChart3, AlertTriangle, FileText, Database, Settings as SettingsIcon } from 'lucide-react';
 import { clearOpportunitiesCache } from '@/lib/opportunitiesCache';
+import { getSettings, updateSettings } from '@/lib/api';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
@@ -11,86 +11,10 @@ const ACTIONS = [
   { id: 'sync_positions', label: 'Sync Alpaca Positions', desc: 'Pull latest positions from Alpaca paper account', icon: RotateCcw, endpoint: '/trading/sync', method: 'POST' },
   { id: 'refresh_all', label: 'Refresh Market Data', desc: 'Fetch latest OHLCV from Polygon for all tickers', icon: RefreshCw, endpoint: '/data/refresh-all', method: 'POST' },
   { id: 'refresh_spy', label: 'Refresh SPY Data', desc: 'Fetch latest SPY OHLCV from Polygon', icon: RefreshCw, endpoint: '/data/refresh/SPY?days=365', method: 'POST' },
-
   { id: 'generate_report', label: 'Generate Daily Report', desc: 'Generate AI-powered daily portfolio report', icon: FileText, endpoint: '/ai/report', method: 'GET' },
   { id: 'compute_opportunities', label: 'Scan Opportunities', desc: 'Compute opportunity scores for universe', icon: BarChart3, endpoint: '/opportunities/compute', method: 'POST' },
   { id: 'run_stress_test', label: 'Run Stress Test', desc: 'Run stress scenarios on current portfolio positions', icon: AlertTriangle, endpoint: '/risk/stress-test/run', method: 'GET' },
 ];
-
-const SECTIONS = [
-  {
-    id: 'notifications',
-    icon: Bell,
-    title: 'Notifications',
-    desc: 'Configure alert channels and thresholds',
-    fields: [
-      { key: 'email', label: 'Email Alerts', type: 'toggle', value: true },
-      { key: 'sms', label: 'SMS Alerts', type: 'toggle', value: false },
-      { key: 'daily_report', label: 'Daily Report', type: 'toggle', value: true },
-      { key: 'threshold', label: 'Alert Threshold', type: 'select', value: '5%', options: ['1%', '2%', '5%', '10%'] },
-    ],
-  },
-  {
-    id: 'trading',
-    icon: Shield,
-    title: 'Trading Preferences',
-    desc: 'Default strategy and risk parameters',
-    fields: [
-      { key: 'max_position', label: 'Max Position Size', type: 'select', value: '$25,000', options: ['$10,000', '$25,000', '$50,000', '$100,000'] },
-      { key: 'max_risk', label: 'Max Risk Per Trade', type: 'select', value: '2%', options: ['1%', '2%', '3%', '5%'] },
-      { key: 'auto_roll', label: 'Auto-Roll Options', type: 'toggle', value: false },
-    ],
-  },
-  {
-    id: 'api',
-    icon: DollarSign,
-    title: 'API Configuration',
-    desc: 'Brokerage and data provider connections',
-    fields: [
-      { key: 'broker', label: 'Broker', type: 'text', value: 'Alpaca Paper' },
-      { key: 'data_provider', label: 'Market Data', type: 'text', value: 'Polygon.io' },
-      { key: 'api_status', label: 'API Status', type: 'custom', value: 'online' },
-    ],
-  },
-  {
-    id: 'display',
-    icon: RefreshCw,
-    title: 'Display Options',
-    desc: 'Dashboard layout and refresh settings',
-    fields: [
-      { key: 'refresh', label: 'Auto-Refresh', type: 'select', value: '30s', options: ['15s', '30s', '60s', 'Off'] },
-      { key: 'currency', label: 'Display Currency', type: 'select', value: 'USD', options: ['USD', 'EUR', 'GBP', 'CAD'] },
-      { key: 'dark_mode', label: 'Dark Mode', type: 'toggle', value: true },
-    ],
-  },
-];
-
-function SettingField({ field }) {
-  if (field.type === 'toggle') {
-    return (
-      <div className={`w-10 h-5 rounded-full transition-colors relative cursor-pointer ${field.value ? 'bg-terminal-green' : 'bg-terminal-border'}`}>
-        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${field.value ? 'translate-x-5' : 'translate-x-0.5'}`} />
-      </div>
-    );
-  }
-  if (field.type === 'select') {
-    return (
-      <select className="bg-terminal-bg border border-terminal-border rounded-lg px-3 py-1.5 text-sm font-mono text-terminal-text focus:outline-none focus:border-terminal-green/50" defaultValue={field.value}>
-        {field.options.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
-    );
-  }
-  if (field.type === 'custom') {
-    return <StatusDot status={field.value} />;
-  }
-  return (
-    <input
-      type="text"
-      className="bg-terminal-bg border border-terminal-border rounded-lg px-3 py-1.5 text-sm font-mono text-terminal-text focus:outline-none focus:border-terminal-green/50 w-48"
-      defaultValue={field.value}
-    />
-  );
-}
 
 function ActionButton({ action, onRun, loading, result }) {
   const Icon = action.icon;
@@ -121,20 +45,59 @@ function ActionButton({ action, onRun, loading, result }) {
   );
 }
 
+const SETTING_DEFS = {
+  min_options_volume: {
+    label: 'Min Options Volume (30d ADV)',
+    desc: 'Tickers with average daily options volume below this threshold are excluded from opportunity scans',
+    type: 'number',
+    icon: Database,
+  },
+};
+
 export default function SettingsPage() {
+  const [settings, setSettings] = useState({});
+  const [dirty, setDirty] = useState({});
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(null);
   const [results, setResults] = useState({});
+  const [fetching, setFetching] = useState(true);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  useEffect(() => {
+    getSettings()
+      .then((data) => {
+        setSettings(data);
+        setDirty({ ...data });
+      })
+      .catch(() => {})
+      .finally(() => setFetching(false));
+  }, []);
+
+  const handleSave = async () => {
+    setSaved(false);
+    const changed = {};
+    for (const key of Object.keys(dirty)) {
+      if (dirty[key] !== settings[key]) {
+        changed[key] = dirty[key];
+      }
+    }
+    if (Object.keys(changed).length === 0) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      return;
+    }
+    try {
+      await updateSettings(changed);
+      setSettings({ ...dirty });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      // silently fail
+    }
   };
 
   const handleRunAction = async (action) => {
     setLoading(action.id);
     setResults((prev) => ({ ...prev, [action.id]: {} }));
-
     try {
       const opts = { method: action.method || 'POST' };
       if (action.body) {
@@ -152,6 +115,8 @@ export default function SettingsPage() {
       setLoading(null);
     }
   };
+
+  const knownKeys = Object.keys(SETTING_DEFS).filter((k) => k in dirty);
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -186,26 +151,91 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {SECTIONS.map((section) => {
-        const Icon = section.icon;
-        return (
-          <div key={section.id} id={section.id} className="bg-terminal-bg-card border border-terminal-border rounded-xl p-5">
-            <div className="flex items-center gap-3 mb-1">
-              <Icon size={20} className="text-terminal-green" />
-              <h2 className="text-base font-sans font-semibold text-terminal-text">{section.title}</h2>
-            </div>
-            <p className="text-sm text-terminal-text-muted font-sans mb-4 ml-9">{section.desc}</p>
-            <div className="space-y-4 ml-9">
-              {section.fields.map((field) => (
-                <div key={field.key} className="flex items-center justify-between">
-                  <label className="text-sm font-sans text-terminal-text">{field.label}</label>
-                  <SettingField field={field} />
-                </div>
-              ))}
-            </div>
+      {/* Market Data Settings */}
+      <div className="bg-terminal-bg-card border border-terminal-border rounded-xl p-5">
+        <div className="flex items-center gap-3 mb-1">
+          <Database size={20} className="text-terminal-green" />
+          <h2 className="text-base font-sans font-semibold text-terminal-text">Market Data</h2>
+        </div>
+        <p className="text-sm text-terminal-text-muted font-sans mb-4 ml-9">
+          Configure data pipeline thresholds and filters
+        </p>
+        {fetching ? (
+          <div className="ml-9 flex items-center gap-2 text-sm text-terminal-text-muted">
+            <RefreshCw size={14} className="animate-spin" />
+            Loading settings...
           </div>
-        );
-      })}
+        ) : (
+          <div className="space-y-4 ml-9">
+            {knownKeys.length === 0 && (
+              <div className="text-sm text-terminal-text-muted">No settings loaded from backend.</div>
+            )}
+            {knownKeys.map((key) => {
+              const def = SETTING_DEFS[key];
+              const Icon = def.icon;
+              return (
+                <div key={key} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Icon size={16} className="text-terminal-text-muted" />
+                    <div>
+                      <label className="text-sm font-sans text-terminal-text">{def.label}</label>
+                      <p className="text-xs font-sans text-terminal-text-muted">{def.desc}</p>
+                    </div>
+                  </div>
+                  <input
+                    type={def.type || 'text'}
+                    className="bg-terminal-bg border border-terminal-border rounded-lg px-3 py-1.5 text-sm font-mono text-terminal-text focus:outline-none focus:border-terminal-green/50 w-36 text-right"
+                    value={dirty[key] ?? ''}
+                    onChange={(e) => setDirty((prev) => ({ ...prev, [key]: e.target.value }))}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Raw Settings */}
+      <div className="bg-terminal-bg-card border border-terminal-border rounded-xl p-5">
+        <div className="flex items-center gap-3 mb-1">
+          <SettingsIcon size={20} className="text-terminal-green" />
+          <h2 className="text-base font-sans font-semibold text-terminal-text">All Settings</h2>
+        </div>
+        <p className="text-sm text-terminal-text-muted font-sans mb-4 ml-9">
+          Raw key-value store from backend. Edit any setting directly.
+        </p>
+        {fetching ? (
+          <div className="ml-9 flex items-center gap-2 text-sm text-terminal-text-muted">
+            <RefreshCw size={14} className="animate-spin" />
+            Loading settings...
+          </div>
+        ) : (
+          <div className="space-y-3 ml-9">
+            {Object.keys(dirty).length === 0 && (
+              <div className="text-sm text-terminal-text-muted">No settings loaded.</div>
+            )}
+            {Object.keys(dirty).sort().map((key) => {
+              const isKnown = key in SETTING_DEFS;
+              return (
+                <div key={key} className="flex items-center justify-between">
+                  <label className="text-sm font-mono text-terminal-text">{key}</label>
+                  <div className="flex items-center gap-2">
+                    {!isKnown && (
+                      <span className="text-[10px] font-mono text-terminal-text-muted bg-terminal-border px-1.5 py-0.5 rounded">custom</span>
+                    )}
+                    <input
+                      type="text"
+                      className="bg-terminal-bg border border-terminal-border rounded-lg px-3 py-1.5 text-sm font-mono text-terminal-text focus:outline-none focus:border-terminal-green/50 w-48 text-right"
+                      value={dirty[key] ?? ''}
+                      onChange={(e) => setDirty((prev) => ({ ...prev, [key]: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

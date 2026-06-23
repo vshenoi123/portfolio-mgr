@@ -187,6 +187,17 @@ def _init_schema(conn: duckdb.DuckDBPyConnection) -> None:
     """)
 
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS settings (
+            key VARCHAR PRIMARY KEY,
+            value VARCHAR NOT NULL
+        )
+    """)
+    conn.execute("""
+        INSERT OR IGNORE INTO settings (key, value)
+        VALUES ('min_options_volume', '500000')
+    """)
+
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS trade_journal (
             id INTEGER PRIMARY KEY DEFAULT nextval('seq_id'),
             ticker VARCHAR NOT NULL,

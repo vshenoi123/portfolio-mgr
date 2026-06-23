@@ -48,3 +48,9 @@ export function executeTrade(ticker, dte = 30, targetDelta = 0.30, quantity = 1)
 }
 
 export function getOpenOrders() { return fetchApi('/trading/orders?status=open'); }
+
+export function getSettings() { return fetchApi('/settings'); }
+
+export function updateSettings(updates) {
+  return fetchApi('/settings', { method: 'PUT', body: JSON.stringify(updates) });
+}

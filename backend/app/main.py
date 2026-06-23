@@ -21,6 +21,7 @@ from app.engines.ai_manager.router import router as ai_router
 from app.engines.self_learning.router import router as self_learning_router
 from app.engines.monte_carlo.router import router as monte_carlo_router
 from app.engines.stress_test.router import router as stress_test_router
+from app.engines.settings.router import router as settings_router
 from app.health import get_health
 
 
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     app.include_router(self_learning_router)
     app.include_router(monte_carlo_router)
     app.include_router(stress_test_router)
+    app.include_router(settings_router)
 
     @app.get("/health")
     async def health():

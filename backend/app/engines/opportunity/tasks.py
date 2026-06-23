@@ -1,9 +1,11 @@
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import pandas as pd
+import duckdb
 from celery import shared_task
 from app.database import get_data_dir
+from app.config import settings
 from app.engines.opportunity.model import ScoringRefinementModel
 from app.engines.opportunity.service import build_opportunity_scores
 
@@ -168,6 +170,33 @@ def _load_todays_signals() -> list[dict]:
     return _merge_signal_dirs()
 
 
+def _compute_avg_volume(tickers: list[str], data_dir: str) -> dict[str, float]:
+    """Compute 30-day average daily volume for given tickers using DuckDB."""
+    if not tickers:
+        return {}
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    glob_path = os.path.join(data_dir, "market_data", "ohlcv", "*", "*.parquet")
+
+    try:
+        conn = duckdb.connect()
+        lower_tickers = [t.lower() for t in tickers]
+        ticker_list = ", ".join(f"'{t}'" for t in lower_tickers)
+        query = f"""
+            SELECT LOWER(ticker) AS ticker, AVG(volume) AS avg_volume
+            FROM read_parquet('{glob_path}')
+            WHERE LOWER(ticker) IN ({ticker_list})
+              AND timestamp >= '{cutoff}'::TIMESTAMP
+            GROUP BY LOWER(ticker)
+        """
+        result = conn.execute(query).fetchall()
+        conn.close()
+        return {row[0].upper(): float(row[1]) for row in result}
+    except Exception as e:
+        logger.warning("Failed to compute avg volume: %s", e)
+        return {}
+
+
 def build_market_scan() -> str:
     """Build consolidated market_scan/{date}.parquet with metadata + all scores."""
     data_dir = get_data_dir()
@@ -190,6 +219,34 @@ def build_market_scan() -> str:
         signals_df["sic_code"] = signals_df["sic_code"].fillna(0).astype(int)
 
     signals_df = _clean_scores(signals_df)
+
+    min_vol = 0
+    try:
+        conn = duckdb.connect(str(settings.database_path))
+        row = conn.execute(
+            "SELECT value FROM settings WHERE key = 'min_options_volume'"
+        ).fetchone()
+        conn.close()
+        if row:
+            min_vol = int(row[0])
+    except Exception as e:
+        logger.warning("Could not read settings, skipping volume filter: %s", e)
+
+    if min_vol > 0:
+        tickers = signals_df["ticker"].tolist()
+        avg_vol = _compute_avg_volume(tickers, data_dir)
+        signals_df["avg_options_volume"] = (
+            signals_df["ticker"].map(avg_vol).fillna(0)
+        )
+        before = len(signals_df)
+        signals_df = signals_df[signals_df["avg_options_volume"] >= min_vol]
+        after = len(signals_df)
+        logger.info(
+            "Options volume filter: %d -> %d tickers (min_volume=%d)",
+            before, after, min_vol,
+        )
+    else:
+        signals_df["avg_options_volume"] = 0
 
     path = os.path.join(output_dir, f"{date_str}.parquet")
     signals_df.to_parquet(path, index=False)
