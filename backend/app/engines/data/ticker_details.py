@@ -143,6 +143,8 @@ def _save_cache(details: dict[str, dict]) -> None:
     os.makedirs(cache_dir, exist_ok=True)
     path = os.path.join(cache_dir, "ticker_details.parquet")
     df = pd.DataFrame(details.values())
+    if "sic_code" in df.columns:
+        df["sic_code"] = pd.to_numeric(df["sic_code"], errors="coerce").fillna(0).astype(int)
     df.to_parquet(path, index=False)
 
 

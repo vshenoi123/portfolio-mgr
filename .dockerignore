@@ -1,0 +1,10 @@
+**/__pycache__
+**/*.pyc
+**/*.pyo
+.env
+.git
+node_modules
+.venv
+frontend/node_modules
+**/.DS_Store
+.obsidian
